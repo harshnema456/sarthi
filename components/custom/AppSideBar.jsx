@@ -9,9 +9,9 @@ import {
 import Image from 'next/image';
 import { Button } from '../ui/button';
 import { MessageCircleCodeIcon } from 'lucide-react';
-import WorkspaceHistory from './WorkspaceHistory';
+import WorkspaceHistory from './WorkspaceHistory'; 
 import SideBarFooter from './SideBarFooter';
-
+// AppSideBar component
 function AppSideBar() {
   return (
     

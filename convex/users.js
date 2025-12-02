@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
-
+// Create a new user or return existing user
 export const CreateUser = mutation({
     args: {
         name: v.string(),
@@ -27,7 +27,7 @@ export const CreateUser = mutation({
         console.log(result);
     },
 });
-
+// Get user details by email
 export const GetUser = query({
     args: {
         email: v.string(),
@@ -40,7 +40,7 @@ export const GetUser = query({
         return user[0];
     },
 });
-
+// Update user token
 export const UpdateToken = mutation({
     args: {
         token: v.number(),
@@ -51,5 +51,5 @@ export const UpdateToken = mutation({
             token: args.token,
         });
         return result;
-    },
+    }, 
 });

@@ -2,12 +2,12 @@
 import { ActionContext } from '@/context/ActionContext';
 import { SandpackPreview, useSandpack } from '@codesandbox/sandpack-react';
 import React, { useContext, useEffect, useRef } from 'react';
-
+// SandpackPreviewClient component
 function SandpackPreviewClient() {
   const previewRef = useRef();
   const { sandpack } = useSandpack();
     const { action, setAction } = useContext(ActionContext);
-  
+  // effect to handle deploy/export actions
   useEffect(() => {
     GetSandpackCleint();
   }, [sandpack&& action]);
@@ -20,10 +20,10 @@ function SandpackPreviewClient() {
         window.open('https://' + result?.sandboxId + ".csb.app/")
       } else if(action?.actionType == "export") {
         window?.open(result?.editorUrl)
-      }
+      } // handle deploy/export based on action type
     }
   };
-
+// render SandpackPreview component
   return (
     <SandpackPreview
       ref={previewRef}

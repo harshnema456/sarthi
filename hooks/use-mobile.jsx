@@ -1,15 +1,15 @@
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
-
+// Custom hook to determine if the device is mobile
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState(undefined)
-
+// effect to set up media query listener
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const onChange = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
+    } // update state on media query change
     mql.addEventListener("change", onChange)
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     return () => mql.removeEventListener("change", onChange);

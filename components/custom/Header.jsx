@@ -8,8 +8,8 @@ import Link from 'next/link';
 import { Download, Rocket } from 'lucide-react';
 import { useSidebar } from '../ui/sidebar';
 import { usePathname } from 'next/navigation';
-import { ActionContext } from '@/context/ActionContext';
-
+import { ActionContext } from '@/context/ActionContext'; 
+// Header component
 function Header() {
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
   const { action, setAction } = useContext(ActionContext);
@@ -21,7 +21,7 @@ function Header() {
       timeStamp: Date.now()
     })
 
-  }
+  } // handle action button click
   return (
     <div className="p-4 flex justify-between items-center">
       <Link href={'/'}>

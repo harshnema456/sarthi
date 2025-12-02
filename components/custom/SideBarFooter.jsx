@@ -3,7 +3,7 @@ import { HelpCircle, LogOut, Settings, Wallet } from 'lucide-react';
 import React from 'react';
 import { Button } from '../ui/button';
 import { useRouter } from 'next/navigation';
-
+// SideBarFooter component
 function SideBarFooter() {
   const router = useRouter();
   const options = [
@@ -29,7 +29,7 @@ function SideBarFooter() {
     console.log(option);
     router.push(option.path);
   };
-
+// render component
   return (
     <div className="p-2 mb-10">
       {options.map((option, index) => (
@@ -45,6 +45,6 @@ function SideBarFooter() {
       ))}
     </div>
   );
-}
+} 
 
 export default SideBarFooter;

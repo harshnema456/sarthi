@@ -3,21 +3,22 @@ import {
   HarmCategory,
   HarmBlockThreshold,
 } from '@google/generative-ai';
-
+// Initialize Google Generative AI model
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
-
+// Configure the model
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash-lite',
+  model: 'gemini-2.0-flash-lite', // Specify the model name 
 });
-
+// Start a chat session with the model 
 const generationConfig = {
   temperature: 1,
   topP: 0.95,
   topK: 40,
   maxOutputTokens: 8192,
   responseMimeType: 'text/plain',
-};
+}; // General generation configuration
+export
 const CodeGenerationConfig = {
   temperature: 1,
   topP: 0.95,
@@ -25,12 +26,12 @@ const CodeGenerationConfig = {
   maxOutputTokens: 8192,
   responseMimeType: 'application/json',
 };
-
+// Configuration specific to code generation 
 export const chatSession = model.startChat({
   generationConfig,
   history: [],
 });
-
+// Chat session for general AI chat
 export const GenAiCode = model.startChat({
   generationConfig: CodeGenerationConfig,
   history: [

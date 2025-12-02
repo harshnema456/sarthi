@@ -12,7 +12,7 @@ export async function POST(req) {
         { status: 400 }
       );
     }
-
+// Send the prompt to the AI model via chatSession
     const result = await chatSession.sendMessage(prompt);
     console.log("Raw chatSession result:", JSON.stringify(result, null, 2));
 

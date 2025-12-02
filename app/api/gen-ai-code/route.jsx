@@ -13,6 +13,7 @@ export async function POST(req) {
       );
     }
 
+    // Send the prompt to the AI model via GenAiCode
     const result = await GenAiCode.sendMessage(prompt);
     console.log("Raw GenAiCode result:", JSON.stringify(result, null, 2));
 
@@ -27,7 +28,7 @@ export async function POST(req) {
         text = response.text;
       }
     }
-
+   // Validate text
     if (!text) {
       throw new Error("GenAi returned empty or invalid response.text");
     }
@@ -48,7 +49,7 @@ export async function POST(req) {
       console.error("Parsed JSON:", parsed);
       throw new Error(`JSON has no "files" object`);
     }
-
+// Return the files object
     return NextResponse.json(
       { files: parsed.files },
       { status: 200 }
@@ -63,5 +64,5 @@ export async function POST(req) {
       },
       { status: 500 }
     );
-  }
+  } 
 }

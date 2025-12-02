@@ -5,23 +5,24 @@ import { useConvex } from 'convex/react';
 import Link from 'next/link';
 import React, { useContext, useEffect, useState } from 'react';
 import { useSidebar } from '../ui/sidebar';
-
+// WorkspaceHistory component
 function WorkspaceHistory() {
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
-  const [workspaceList, setWorkSpaceList] = useState();
-  const convex = useConvex();
-  const { toggleSidebar } = useSidebar();
+  const [workspaceList, setWorkSpaceList] = useState(); // state for list of workspaces
+  const convex = useConvex(); // convex client
+  const { toggleSidebar } = useSidebar(); // sidebar toggle
+// fetch all workspaces when userDetail changes
   useEffect(() => {
     userDetail && GetAllWorkspace();
   }, [userDetail]);
-
+// function to get all workspaces for the user
   const GetAllWorkspace = async () => {
     const result = await convex.query(api.workspace.GetAllWorkspace, {
       userId: userDetail?._id,
     });
     setWorkSpaceList(result);
   };
-
+// render workspace history
   return (
     <div>
       <h2 className="font-medium text-lg">Your Chats</h2>

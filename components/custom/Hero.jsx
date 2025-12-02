@@ -10,7 +10,7 @@ import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-
+// Hero component
 function Hero() {
   const [userInput, setUserInput] = useState();
   const { messages, setMessages } = useContext(MessagesContext);
@@ -18,7 +18,7 @@ function Hero() {
   const [openDialog, setOpenDialog] = useState(false);
   const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
   const router = useRouter();
-
+// Handle generating a new workspace based on user input
   const onGenerate = async (input) => {
     if (!userDetail?.name) {
       setOpenDialog(true);
@@ -27,20 +27,20 @@ function Hero() {
     if(userDetail?.token < 10) {
       toast("You don't have enough token to generate code");
       return
-    }
+    } // check for sufficient tokens
     const msg = {
       role: 'user',
       content: input,
     };
     setMessages(msg);
-
+// create new workspace with the user message
     const workspaceId = await CreateWorkspace({
       user: userDetail._id,
       messages: [msg],
     });
     console.log(workspaceId);
     router.push('/workspace/' + workspaceId);
-  };
+  };// render component
 
   return (
     <div className="flex flex-col items-center mt-36 xl:mt-42 gap-2">

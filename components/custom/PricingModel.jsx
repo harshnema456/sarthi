@@ -5,7 +5,7 @@ import { PayPalButtons } from '@paypal/react-paypal-js';
 import { UserDetailContext } from '@/context/UserDetailContext';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
-
+// PricingModel component
 function PricingModel() {
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
   const [selectedOption, setSelectedOption] = useState();
@@ -14,7 +14,7 @@ function PricingModel() {
   useEffect(() => {
     console.log(userDetail);
   }, [userDetail]);
-
+// handle successful payment
   const onPaymentSuccess = async (pric, usr) => {
     console.log(selectedOption);
     console.log(pric);

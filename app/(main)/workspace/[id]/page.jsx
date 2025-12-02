@@ -1,7 +1,7 @@
 import ChatView from '@/components/custom/ChatView'
 import CodeView from '@/components/custom/CodeView'
 import React from 'react'
-
+// import { useParams } from 'next/navigation'
 function Workspace() {
   return (
     <div className='p-3 pr-10 mt-3'>
@@ -14,6 +14,6 @@ function Workspace() {
     </div>
     </div>
   )
-}
+} 
 
 export default Workspace

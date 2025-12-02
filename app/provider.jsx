@@ -49,7 +49,7 @@ function Provider({ children }) {
     const result = await convex.query(api.users.GetUser, { email: user.email });
     setUserDetail(result);
   };
-
+// Render the provider with nested context providers
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID_KEY || ''}>
         <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>

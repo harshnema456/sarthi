@@ -23,7 +23,7 @@ export const countToken = (inputText) => {
     .split(/\s+/)
     .filter((word) => word).length;
 };
-
+// ChatView component
 function ChatView() {
   const { id } = useParams();
   const convex = useConvex();
@@ -34,7 +34,7 @@ function ChatView() {
   const UpdateMessages = useMutation(api.workspace.UpdateMessages);
   const { toggleSidebar } = useSidebar();
   const UpdateToken = useMutation(api.users.UpdateToken);
-
+// Fetch workspace data when ID changes
   useEffect(() => {
     if (id) {
       GetWorkspaceData();
@@ -65,6 +65,7 @@ function ChatView() {
       }
     }
   }, [messages]);
+  // Fetch AI response based on current messages
 
   const GetAiResponse = async () => {
     if (!messages || messages.length === 0) return;
@@ -80,7 +81,7 @@ function ChatView() {
         body: JSON.stringify({ prompt: PROMPT }),
       });
       console.log('[ChatView] /api/ai-chat response:', response);
-
+ // Handle non-OK responses
 if (!response.ok) {
   const text = await response.text().catch(() => '');
   console.error('AI Chat API failed:', response.status, text);
@@ -125,7 +126,7 @@ if (!response.ok) {
         ...(prev ?? {}),
         token: newToken,
       }));
-
+// update token in DB
       if (userDetail?._id) {
         await UpdateToken({
           token: newToken,
@@ -139,7 +140,7 @@ if (!response.ok) {
       setLoading(false);
     }
   };
-
+// Handle user input to generate AI response
   const onGenerate = (input) => {
     const text = input.trim();
     if (!text) return;

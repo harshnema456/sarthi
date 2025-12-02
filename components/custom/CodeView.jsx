@@ -20,21 +20,21 @@ import { UserDetailContext } from '@/context/UserDetailContext';
 import { toast } from 'sonner';
 import SandpackPreviewClient from './SandpackPreviewClient';
 import { ActionContext } from '@/context/ActionContext';
-
+// CodeView component
 function CodeView() {
   const { id } = useParams();
   const convex = useConvex();
+// state for active tab, files, and loading
+  const [activeTab, setActiveTab] = useState('code'); // 'code' or 'preview'
+  const [files, setFiles] = useState(Lookup?.DEFAULT_FILE ?? {}); // default files
+  const [loading, setLoading] = useState(false);// context for messages, user details, and actions
 
-  const [activeTab, setActiveTab] = useState('code');
-  const [files, setFiles] = useState(Lookup?.DEFAULT_FILE ?? {});
-  const [loading, setLoading] = useState(false);
+  const { messages } = useContext(MessagesContext); // get messages from context
+  const { userDetail, setUserDetail } = useContext(UserDetailContext); // get user details from context
+  const { action } = useContext(ActionContext); // get action from context
 
-  const { messages } = useContext(MessagesContext);
-  const { userDetail, setUserDetail } = useContext(UserDetailContext);
-  const { action } = useContext(ActionContext);
-
-  const UpdateFiles = useMutation(api.workspace.UpdateFiles);
-  const UpdateToken = useMutation(api.users.UpdateToken);
+  const UpdateFiles = useMutation(api.workspace.UpdateFiles); // mutation to update files
+  const UpdateToken = useMutation(api.users.UpdateToken); // mutation to update user token
 
   // auto switch to preview for deploy/export
   useEffect(() => {
@@ -143,7 +143,7 @@ function CodeView() {
         ...(prev ?? {}),
         token: newToken,
       }));
-
+// update token in DB
       if (userDetail?._id) {
         await UpdateToken({
           token: newToken,
@@ -159,7 +159,7 @@ function CodeView() {
       setLoading(false);
     }
   };
-
+// render component
   return (
     <div className="relative">
       <div className="bg-[#181818] w-full p-2 border">

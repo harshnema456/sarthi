@@ -11,11 +11,12 @@ import {
 import Lookup from "@/data/Lookup";
 import { Button } from "../ui/button";
 import { useGoogleLogin } from "@react-oauth/google";
-import axios from "axios";
+import axios from "axios"; // for making HTTP requests  
 import { UserDetailContext } from "@/context/UserDetailContext";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import uuid4 from "uuid4";
+import { useMutation } from "convex/react"; 
+import { api } from "@/convex/_generated/api"; 
+import uuid4 from "uuid4"; // for generating unique user IDs
+// SignInDialog component
 
 function SignInDialog({ openDialog, closeDialog }) {
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
