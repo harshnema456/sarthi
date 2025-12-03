@@ -38,7 +38,7 @@ function Hero() {
       user: userDetail._id,
       messages: [msg],
     });
-    console.log(workspaceId);
+    console.log("workspaceid:", workspaceId);
     router.push('/workspace/' + workspaceId);
   };// render component
 
