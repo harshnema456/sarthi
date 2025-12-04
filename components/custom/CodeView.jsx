@@ -14,27 +14,27 @@ import axios from 'axios';
 import { useConvex, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useParams } from 'next/navigation';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon,Github } from 'lucide-react';
 import { countToken } from './ChatView';
 import { UserDetailContext } from '@/context/UserDetailContext';
 import { toast } from 'sonner';
 import SandpackPreviewClient from './SandpackPreviewClient';
 import { ActionContext } from '@/context/ActionContext';
-// CodeView component
+
 function CodeView() {
   const { id } = useParams();
   const convex = useConvex();
-// state for active tab, files, and loading
-  const [activeTab, setActiveTab] = useState('code'); // 'code' or 'preview'
-  const [files, setFiles] = useState(Lookup?.DEFAULT_FILE ?? {}); // default files
-  const [loading, setLoading] = useState(false);// context for messages, user details, and actions
 
-  const { messages } = useContext(MessagesContext); // get messages from context
-  const { userDetail, setUserDetail } = useContext(UserDetailContext); // get user details from context
-  const { action } = useContext(ActionContext); // get action from context
+  const [activeTab, setActiveTab] = useState('code');
+  const [files, setFiles] = useState(Lookup?.DEFAULT_FILE ?? {});
+  const [loading, setLoading] = useState(false);
 
-  const UpdateFiles = useMutation(api.workspace.UpdateFiles); // mutation to update files
-  const UpdateToken = useMutation(api.users.UpdateToken); // mutation to update user token
+  const { messages } = useContext(MessagesContext);
+  const { userDetail, setUserDetail } = useContext(UserDetailContext);
+  const { action } = useContext(ActionContext);
+
+  const UpdateFiles = useMutation(api.workspace.UpdateFiles);
+  const UpdateToken = useMutation(api.users.UpdateToken);
 
   // auto switch to preview for deploy/export
   useEffect(() => {
@@ -143,7 +143,7 @@ function CodeView() {
         ...(prev ?? {}),
         token: newToken,
       }));
-// update token in DB
+
       if (userDetail?._id) {
         await UpdateToken({
           token: newToken,
@@ -159,31 +159,92 @@ function CodeView() {
       setLoading(false);
     }
   };
-// render component
-  return (
-    <div className="relative">
-      <div className="bg-[#181818] w-full p-2 border">
-        <div className="flex items-center flex-wrap shrink-0 bg-black p-1 w-[140px] gap-3 justify-center rounded-full">
-          <h2
-            onClick={() => setActiveTab('code')}
-            className={`text-sm cursor-pointer ${
-              activeTab === 'code' &&
-              'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'
-            }`}
-          >
-            Code
-          </h2>
-          <h2
-            onClick={() => setActiveTab('preview')}
-            className={`text-sm cursor-pointer ${
-              activeTab === 'preview' &&
-              'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'
-            }`}
-          >
-            Preview
-          </h2>
-        </div>
+  const publishToGitHub = async () => {
+  try {
+    if (!files || Object.keys(files).length === 0) {
+      toast('No files to publish to GitHub');
+      return;
+    }
+
+    if (!userDetail?.name) {
+      toast('Please sign in before publishing to GitHub');
+      return;
+    }
+
+    const repoName = `ai-workspace-${id || Date.now()}`;
+    setLoading(true);
+
+    const res = await fetch('/api/github-publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoName, files }),
+    });
+
+    const raw = await res.text();
+    let data = null;
+
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      console.error('GitHub publish non-JSON response:', raw);
+      toast(`GitHub publish failed (HTTP ${res.status}). Check server logs.`);
+      return;
+    }
+
+    if (!res.ok || !data.success) {
+      console.error('GitHub publish failed:', data);
+      toast(data?.error || 'GitHub publish failed');
+      return;
+    }
+
+    toast('Published to GitHub successfully!');
+    if (data.repoUrl) {
+      window.open(data.repoUrl, '_blank');
+    }
+  } catch (error) {
+    console.error('GitHub publish error:', error);
+    toast('Something went wrong while publishing to GitHub');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+return (
+  <div className="relative">
+    <div className="bg-[#181818] w-full p-2 border flex items-center justify-between">
+      {/* Left: Code / Preview toggle */}
+      <div className="flex items-center flex-wrap shrink-0 bg-black p-1 w-[140px] gap-3 justify-center rounded-full">
+        <h2
+          onClick={() => setActiveTab('code')}
+          className={`text-sm cursor-pointer ${
+            activeTab === 'code' &&
+            'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'
+          }`}
+        >
+          Code
+        </h2>
+        <h2
+          onClick={() => setActiveTab('preview')}
+          className={`text-sm cursor-pointer ${
+            activeTab === 'preview' &&
+            'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'
+          }`}
+        >
+          Preview
+        </h2>
       </div>
+
+      {/* Right: GitHub publish button with icon */}
+      <button
+        onClick={publishToGitHub}
+        className="flex items-center gap-2 text-xs md:text-sm px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700"
+      >
+        <Github className="w-4 h-4" />
+        Publish to GitHub
+      </button>
+    </div>
+    
 
       <SandpackProvider
         files={files}
