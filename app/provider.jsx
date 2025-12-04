@@ -49,25 +49,23 @@ function Provider({ children }) {
     const result = await convex.query(api.users.GetUser, { email: user.email });
     setUserDetail(result);
   };
-// Render the provider with nested context providers
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID_KEY || ''}>
-        <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
-          <MessagesContext.Provider value={{ messages, setMessages }}>
-            <ActionContext.Provider value={{ action, setAction }}>
-              <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-                <SidebarProvider defaultOpen={false}>
-                  <AppSideBar />
-                  <main className="w-full">
-                    <Header />
-                    {children}
-                  </main>
-                </SidebarProvider>
-              </NextThemesProvider>
-            </ActionContext.Provider>
-          </MessagesContext.Provider>
-        </UserDetailContext.Provider>
-   
+      <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
+        <MessagesContext.Provider value={{ messages, setMessages }}>
+          <ActionContext.Provider value={{ action, setAction }}>
+            <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+              <SidebarProvider defaultOpen={false}>
+                <AppSideBar />
+                <main className="w-full">
+                  <Header />
+                  {children}
+                </main>
+              </SidebarProvider>
+            </NextThemesProvider>
+          </ActionContext.Provider>
+        </MessagesContext.Provider>
+      </UserDetailContext.Provider>
     </GoogleOAuthProvider>
   );
 }

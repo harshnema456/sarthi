@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   users: typeof users;
   workspace: typeof workspace;
 }>;
