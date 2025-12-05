@@ -1,238 +1,369 @@
+// src/components/custom/ChatView.jsx
 'use client';
 
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import ReactMarkdown from 'react-markdown';
+import { useParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { useConvex, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { MessagesContext } from '@/context/MessagesContext';
 import { UserDetailContext } from '@/context/UserDetailContext';
-import { api } from '@/convex/_generated/api';
-import Colors from '@/data/Colors';
-import Lookup from '@/data/Lookup';
 import Prompt from '@/data/Prompt';
-import { useConvex, useMutation } from 'convex/react';
-import { ArrowRight, Link, Loader2Icon } from 'lucide-react';
-import Image from 'next/image';
-import { useParams } from 'next/navigation';
-import React, { useContext, useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { useSidebar } from '../ui/sidebar';
-import { toast } from 'sonner';
+import Lookup from '@/data/Lookup';
+import Colors from '@/data/Colors';
+import { ArrowRight, Loader2Icon, Copy, Trash2, Link, Code } from 'lucide-react';
 
-// simple token counter
+/* simple token counter used by your code */
 export const countToken = (inputText) => {
   if (!inputText) return 0;
   return String(inputText)
     .trim()
     .split(/\s+/)
-    .filter((word) => word).length;
+    .filter(Boolean).length;
 };
-// ChatView component
-function ChatView() {
+
+/**
+ * ChatView — updated styling to match your screenshot:
+ * - dark navy canvas
+ * - bluish AI bubbles left with small avatar
+ * - user bubbles right aligned and darker
+ * - top header with counts/badges
+ * - large bottom composer matching the theme with Send button on right
+ *
+ * Props:
+ * - openCode(optional) : function to navigate to Code view (parent dashboard)
+ */
+export default function ChatView({ openCode } = {}) {
   const { id } = useParams();
   const convex = useConvex();
   const { messages, setMessages } = useContext(MessagesContext);
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
+
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const UpdateMessages = useMutation(api.workspace.UpdateMessages);
-  const { toggleSidebar } = useSidebar();
   const UpdateToken = useMutation(api.users.UpdateToken);
-// Fetch workspace data when ID changes
+
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // load workspace messages when id changes
   useEffect(() => {
-    if (id) {
-      GetWorkspaceData();
-    }
+    if (!id) return;
+    fetchWorkspace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  /**
-   * Get Workspace data using Workspace ID
-   */
-  const GetWorkspaceData = async () => {
+  const fetchWorkspace = async () => {
     try {
-      const result = await convex.query(api.workspace.GetWorkspace, {
-        workspaceId: id,
-      });
-      setMessages(result?.messages ?? []);
+      const res = await convex.query(api.workspace.GetWorkspace, { workspaceId: id });
+      setMessages(res?.messages ?? []);
+      setTimeout(() => inputRef.current?.focus(), 200);
     } catch (err) {
-      console.error('GetWorkspaceData error:', err);
-      toast('Failed to load workspace messages');
+      console.error('fetchWorkspace error', err);
+      toast.error('Failed to load workspace');
     }
   };
 
-  // whenever last message is from user, call AI
+  // auto-scroll when messages or loading changes
   useEffect(() => {
-    if (messages?.length > 0) {
-      const last = messages[messages.length - 1];
-      if (last.role === 'user') {
-        GetAiResponse();
-      }
-    }
-  }, [messages]);
-  // Fetch AI response based on current messages
+    const node = containerRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading]);
 
-  const GetAiResponse = async () => {
+  // when the last message is from 'user', call AI
+  useEffect(() => {
     if (!messages || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role === 'user') {
+      callAi();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
+  const callAi = async () => {
+    if (!messages || messages.length === 0) return;
     setLoading(true);
-    const PROMPT = JSON.stringify(messages) + ' ' + Prompt.CHAT_PROMPT;
-    console.log('[ChatView] PROMPT:', PROMPT);
 
+    const PROMPT = JSON.stringify(messages) + ' ' + Prompt.CHAT_PROMPT;
     try {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: PROMPT }),
       });
-      console.log('[ChatView] /api/ai-chat response:', response);
- // Handle non-OK responses
-if (!response.ok) {
-  const text = await response.text().catch(() => '');
-  console.error('AI Chat API failed:', response.status, text);
-  toast('AI response failed. Please try again.');
-  return;
-}
 
-
-      const data = await response.json().catch((err) => {
-        console.error('Failed to parse AI response JSON:', err);
-        throw new Error('Invalid JSON from AI API');
-      });
-
-      if (!data || !data.result) {
-        console.error('AI Chat API: missing result field', data);
-        toast('AI returned an empty response');
+      if (!response.ok) {
+        const t = await response.text().catch(() => '');
+        console.error('ai-chat failed', response.status, t);
+        toast.error('AI response failed. Try again.');
         return;
       }
 
-      const aiResp = {
-        role: 'ai', // or 'assistant' if you prefer
-        content: data.result,
-      };
+      const data = await response.json().catch((e) => {
+        console.error('Invalid AI JSON', e);
+        throw new Error('AI JSON parse failed');
+      });
 
-      // update local messages
-      setMessages((prev) => [...(prev ?? []), aiResp]);
+      if (!data || !data.result) {
+        console.error('AI returned no result', data);
+        toast.error('AI returned empty response');
+        return;
+      }
 
-      // update messages in DB
+      const aiMsg = { role: 'ai', content: data.result, timestamp: new Date().toISOString() };
+
+      // update local
+      setMessages(prev => [...(prev ?? []), aiMsg]);
+
+      // persist
       await UpdateMessages({
-        messages: [...(messages ?? []), aiResp],
+        messages: [...(messages ?? []), aiMsg],
         workspaceId: id,
       });
 
-      // update token usage
-      const usedTokens = Number(countToken(JSON.stringify(aiResp)));
+      // token accounting
+      const usedTokens = Number(countToken(JSON.stringify(aiMsg)));
       const currentToken = Number(userDetail?.token ?? 0);
       const newToken = currentToken - usedTokens;
-
-      console.log('Token used:', usedTokens, 'New token:', newToken);
-
-      setUserDetail((prev) => ({
-        ...(prev ?? {}),
-        token: newToken,
-      }));
-// update token in DB
+      setUserDetail(prev => ({ ...(prev ?? {}), token: newToken }));
       if (userDetail?._id) {
-        await UpdateToken({
-          token: newToken,
-          userId: userDetail._id,
-        });
+        await UpdateToken({ token: newToken, userId: userDetail._id });
       }
-    } catch (error) {
-      console.error('AI Chat API error:', error);
-      toast('Something went wrong while generating AI response');
+    } catch (err) {
+      console.error('callAi error', err);
+      toast.error('Error generating AI response');
     } finally {
       setLoading(false);
     }
   };
-// Handle user input to generate AI response
-  const onGenerate = (input) => {
-    const text = input.trim();
-    if (!text) return;
 
+  // persist & queue user message
+  const onGenerate = (text) => {
+    const t = String(text ?? '').trim();
+    if (!t) return;
     if (userDetail?.token < 10) {
-      toast("You don't have enough token to generate code");
+      toast.error("You don't have enough token to generate content");
       return;
     }
 
-    // push user message; useEffect will trigger GetAiResponse
-    setMessages((prev) => [...(prev ?? []), { role: 'user', content: text }]);
+    const userMsg = { role: 'user', content: t, timestamp: new Date().toISOString() };
+    setMessages(prev => [...(prev ?? []), userMsg]);
+
+    // persist user message quickly
+    UpdateMessages({ messages: [...(messages ?? []), userMsg], workspaceId: id }).catch(e => {
+      console.error('persist user msg failed', e);
+    });
+
     setUserInput('');
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  return (
-    <div className="relative h-[83vh] flex flex-col">
-      <div className="flex-1 overflow-y-scroll scrollbar-hide pl-10">
-        {messages?.length > 0 &&
-          messages.map((msg, index) => (
-            <div
-              key={index}
-              className="p-3 rounded-lg mb-2 flex gap-2 items-center justify-start leading-7"
-              style={{
-                backgroundColor: Colors.CHAT_BACKGROUND,
-              }}
-            >
-              {msg?.role === 'user' && (
-                <Image
-                  src={userDetail?.picture}
-                  alt="userImage"
-                  width={35}
-                  height={35}
-                  className="rounded-full"
-                />
-              )}
-              <ReactMarkdown className="flex flex-col">
-                {msg?.content}
-              </ReactMarkdown>
+  // UI actions
+  const clearConversation = async () => {
+    setMessages([]);
+    try {
+      await UpdateMessages({ messages: [], workspaceId: id });
+      toast.success('Conversation cleared');
+    } catch (e) {
+      console.error('clearConversation', e);
+      toast.error('Failed to clear conversation');
+    }
+  };
+
+  const copy = async (txt) => {
+    try {
+      await navigator.clipboard.writeText(txt);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!loading) onGenerate(userInput);
+    }
+  };
+
+  const formatTime = (iso) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
+  // message renderer (left AI / right User)
+  const renderMessage = (m, i) => {
+    const isUser = m.role === 'user';
+    const isAi = m.role === 'ai' || m.role === 'assistant' || m.role === 'system';
+
+    return (
+      <div key={i} className={`w-full flex mb-5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+        {/* left avatar for AI */}
+        {!isUser && (
+          <div className="mr-4 shrink-0">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-800">
+              <Image src={userDetail?.picture ?? '/avatar-placeholder.png'} width={40} height={40} alt="ai-avatar" />
             </div>
-          ))}
-        {loading && (
-          <div
-            className="p-3 rounded-lg mb-2 flex gap-2 items-center justify-start"
-            style={{
-              backgroundColor: Colors.CHAT_BACKGROUND,
-            }}
-          >
-            <Loader2Icon className="animate-spin" />
-            <h2>Generating response...</h2>
+          </div>
+        )}
+
+        <div className="max-w-[72%]">
+          <div className={`rounded-xl p-4 relative ${isUser ? 'bg-[#0f1318] text-slate-100 border border-slate-800' : 'bg-[#3c6a8b] text-white'}`}
+               style={isUser ? {} : { boxShadow: '0 6px 18px rgba(34,67,95,0.45)' }}>
+            <div className="flex items-start justify-between">
+              <div className="text-xs text-slate-200">
+                <span className="font-medium">{isUser ? 'You' : 'AI'}</span>
+                <span className="ml-3 text-[11px] text-slate-200/70">{formatTime(m.timestamp)}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={() => copy(m.content)} title="Copy" className="p-1 rounded hover:bg-white/5">
+                  <Copy size={14} />
+                </button>
+                {openCode && isAi && (
+                  <button onClick={() => openCode()} title="Open Code" className="p-1 rounded hover:bg-white/5">
+                    <Code size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-2 prose prose-invert max-w-none">
+              <ReactMarkdown>{m.content}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+
+        {/* right avatar for user */}
+        {isUser && (
+          <div className="ml-4 shrink-0">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-800">
+              <Image src={userDetail?.picture ?? '/avatar-placeholder.png'} width={40} height={40} alt="you" />
+            </div>
           </div>
         )}
       </div>
+    );
+  };
 
-      {/* Input Section */}
-      <div className="flex gap-2 items-end">
-        {userDetail && (
-          <Image
-            onClick={toggleSidebar}
-            src={userDetail?.picture}
-            alt="userImage"
-            width={30}
-            height={30}
-            className="rounded-full cursor-pointer"
-          />
-        )}
-        <div
-          className="p-5 border rounded-xl max-w-2xl w-full mt-3"
-          style={{
-            backgroundColor: Colors.BACKGROUND,
-          }}
-        >
-          <div className="flex gap-2">
-            <textarea
-              placeholder={Lookup.INPUT_PLACEHOLDER}
-              className="outline-none bg-transparent w-full h-32 max-h-56 resize-none"
-              onChange={(event) => setUserInput(event.target.value)}
-              value={userInput}
-            />
-            {userInput && (
-              <ArrowRight
-                onClick={() => onGenerate(userInput)}
-                className="bg-blue-500 p-2 w-10 h-10 rounded-md cursor-pointer"
-              />
+  return (
+    <div className="h-[83vh] flex flex-col">
+      {/* header: badges similar to screenshot */}
+      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-[#071127]">
+        <div className="flex items-center gap-4">
+          <h3 className="text-lg font-semibold">Chat</h3>
+
+          <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
+            <span className="text-xs">🕘</span>
+            <span>{(messages?.length ?? 0)} msgs</span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
+            <span className="text-xs">💎</span>
+            <span>Tokens: <span className="font-medium ml-1">{userDetail?.token ?? 0}</span></span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={clearConversation} className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]" title="Clear">
+            <Trash2 size={16} />
+          </button>
+          <button onClick={() => (typeof window !== 'undefined' && window?.document?.getElementById('sidebar-toggle')?.click())} className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]" title="Toggle sidebar">
+            <Link size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* main canvas */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto p-6"
+        style={{ background: '#0b0b0c', borderTop: '8px solid rgba(30,40,60,0.6)' }}
+      >
+        <div className="mx-auto max-w-6xl">
+          {/* large dark rounded canvas area */}
+          <div className="rounded-xl bg-[#070707] p-6" style={{ minHeight: '48vh', border: '1px solid rgba(255,255,255,0.02)' }}>
+            {/* messages */}
+            {(!messages || messages.length === 0) ? (
+              <div className="text-slate-400 italic">No messages yet — start the conversation</div>
+            ) : (
+              messages.map((m, i) => renderMessage(m, i))
+            )}
+
+            {loading && (
+              <div className="flex items-center gap-3 p-3 rounded-lg mt-3 bg-[#081420]">
+                <Loader2Icon className="animate-spin" />
+                <div className="text-slate-200">Generating response…</div>
+              </div>
             )}
           </div>
-          <div>
-            <Link className="h-5 w-5" />
+        </div>
+      </div>
+
+      {/* composer (large rounded at bottom) */}
+      <div className="px-6 pb-6 pt-2">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-xl bg-[#0f1318] p-5 flex items-start gap-4" style={{ border: '1px solid rgba(255,255,255,0.02)' }}>
+            <div>
+              {userDetail ? (
+                <button className="w-12 h-12 rounded-full overflow-hidden border border-slate-800" onClick={() => {/* toggle sidebar if needed */}}>
+                  <Image src={userDetail.picture} width={48} height={48} alt="profile" />
+                </button>
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800" />
+              )}
+            </div>
+
+            <div className="flex-1">
+              <textarea
+                ref={inputRef}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={Lookup.INPUT_PLACEHOLDER || 'What do you want to build?'}
+                className="w-full bg-transparent resize-none outline-none text-slate-100 min-h-[84px] max-h-[180px] p-2"
+                disabled={loading}
+              />
+
+              <div className="mt-3 flex items-center justify-between">
+                <div className="text-xs text-slate-400">
+                  <span>{countToken(userInput)} words</span>
+                  <span className="mx-3">•</span>
+                  <span>{userDetail?.token ?? 0} tokens left</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {openCode && (
+                    <button onClick={() => openCode()} className="px-3 py-2 rounded bg-[#0d1a24] border border-slate-800 hover:bg-[#0f2633]" title="Open Code">
+                      <Code size={14} />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => onGenerate(userInput)}
+                    disabled={loading || !userInput.trim()}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#2b66d6] hover:bg-[#2a5fcc] disabled:opacity-50"
+                  >
+                    {loading ? <Loader2Icon className="animate-spin" /> : <ArrowRight size={16} />}
+                    <span>Send</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-2 text-xs text-slate-500">Tip: press <span className="font-medium">Ctrl/Cmd + Enter</span> to send. Press Enter for newline.</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-export default ChatView;
