@@ -17,6 +17,7 @@ const SignOutButton = () => {
   };
 
   return (
+    <SignOutButton>
     <button 
       onClick={handleSignOut}
       className="flex items-center gap-2 w-full p-2 text-sm rounded-md hover:bg-gray-800 transition-colors text-gray-300 hover:text-white"
@@ -25,6 +26,7 @@ const SignOutButton = () => {
       <LogOut className="h-4 w-4" />
       Sign Out
     </button>
+    </SignOutButton>
   );
 };
 
