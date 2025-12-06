@@ -42,6 +42,7 @@ export default function ChatView({ openCode } = {}) {
   // load workspace messages when id changes
   useEffect(() => {
     if (!id) return;
+    //console.log("this is abhi",id);
     fetchWorkspace();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);

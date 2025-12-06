@@ -2,31 +2,37 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 // Create a new user or return existing user
 export const CreateUser = mutation({
-    args: {
-        name: v.string(),
-        email: v.string(),
-        picture: v.string(),
-        uid: v.string(),
-    },
-    handler: async(ctx, args) => {
-        // If user already exists
-        const user = await ctx.db
-            .query('users')
-            .filter((q) => q.eq(q.field('email'), args.email))
-            .collect();
-        console.log(user);
+  args: {
+    name: v.string(),
+    email: v.string(),
+    picture: v.string(),
+    uid: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if user already exists
+    const existing = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), args.email))
+      .collect();
 
-        // If not, then add new user
-        const result = await ctx.db.insert('users', {
-            name: args.name,
-            picture: args.picture,
-            email: args.email,
-            uid: args.uid,
-            token: 50000,
-        });
-        console.log(result);
-    },
+    if (existing.length > 0) {
+      return existing[0]._id;   // <-- return existing user ID
+    }
+
+    // Create new user
+    const newUserId = await ctx.db.insert("users", {
+      name: args.name,
+      picture: args.picture,
+      email: args.email,
+      uid: args.uid,
+      token: 50000,
+    });
+
+    return newUserId;  // <-- return new ID
+  },
 });
+
+
 // Get user details by email
 export const GetUser = query({
     args: {

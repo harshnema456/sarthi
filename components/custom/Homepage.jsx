@@ -145,26 +145,61 @@ export default function App() {
           </div>
         </section>
 
-        <section id="process" className="section">
-          <h2>Process Flow</h2>
-          <p>
-            Plan → Design → Build → Deploy — go from idea to live product in a single,
-            guided flow.
-          </p>
-        </section>
 
         <section id="about" className="section">
           <h2>About us</h2>
-          <p>
+            <p>
             INHUB is a visual project builder that turns your ideas into
             production-ready web experiences. Design your pages, generate components,
             and connect to GitHub from one place.
           </p>
+          <br></br>
+          <br></br>
+
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "40px" }}>
+    {/* Left Brand Area */}
+    <div style={{ flex: "1 1 350px" }}>
+      <h1 style={{ fontSize: "38px", fontWeight: "700", marginBottom: "8px", color: "#2ea1c9" }}>
+        HJ<span style={{ color: "#fff" }}>Infotech</span>
+      </h1>
+      <p style={{ fontSize: "16px", lineHeight: "1.6", maxWidth: "420px", opacity: 0.85 }}>
+        Where Innovation Meets Implementation, and Vision Transforms into Reality
+      </p>
+    </div>
+
+    {/* Services */}
+    <div style={{ flex: "1 1 220px" }}>
+      <h3 style={{ fontSize: "22px", marginBottom: "16px", color: "#2ea1c9" }}>Services</h3>
+      <ul style={{ listStyle: "none", padding: 0, lineHeight: "2" }}>
+        <li>Cloud</li>
+        <li>DevOps</li>
+        <li>Security</li>
+        <li>Development</li>
+        <li>Digital Marketing</li>
+      </ul>
+    </div>
+
+    {/* Quick Links */}
+    <div style={{ flex: "1 1 220px" }}>
+      <h3 style={{ fontSize: "22px", marginBottom: "16px", color: "#2ea1c9" }}>Quick Links</h3>
+      <ul style={{ listStyle: "none", padding: 0, lineHeight: "2" }}>
+        <li>Portfolio</li>
+        <li>Blog</li>
+        <li>Case Study</li>
+        <li>About Us</li>
+        <li>Contact</li>
+      </ul>
+    </div>
+  </div>
+        
+          
         </section>
 
         <section id="contact" className="section">
           <h2>Contact us</h2>
-          <p>Say hi at hello@inhub.example and we&apos;ll get back to you.</p>
+          <p>📍 23, Ramnagar Extension, Sodala, Jaipur, Rajasthan 302019 <br />
+            ✉ Info@hjinfotech.com <br />
+            📞 +91 8209227702</p>
         </section>
 
         <footer className="footer">© {new Date().getFullYear()} INHUB</footer>

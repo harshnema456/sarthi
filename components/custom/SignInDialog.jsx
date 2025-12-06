@@ -22,55 +22,60 @@ import { useRouter } from "next/navigation";
 function SignInDialog({ openDialog, closeDialog }) {
   const { setUserDetail } = useContext(UserDetailContext);
   const CreateUser = useMutation(api.users.CreateUser);
+  const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
   const router = useRouter();
 
+  /* ---------------- GOOGLE LOGIN ---------------- */
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       try {
-        // 1) Get Google user profile
         const userInfo = await axios.get(
           "https://www.googleapis.com/oauth2/v3/userinfo",
           {
-            headers: {
-              Authorization: `Bearer ${tokenResponse?.access_token}`,
-            },
+            headers: { Authorization: `Bearer ${tokenResponse?.access_token}` },
           }
         );
 
         const user = userInfo.data;
+        console.log("Google User Info:", user);
+        const userId = await CreateUser({
+        name: user?.name,
+        email: user?.email,
+        picture: user?.picture,
+        uid: uuid4(),
+});
 
-        // 2) Create / upsert user in Convex
-        const created = await CreateUser({
-          name: user?.name,
-          email: user?.email,
-          picture: user?.picture,
-          uid: uuid4(), // your own UID
-        });
+console.log("Convex User ID:", userId);
 
-        console.log("Convex CreateUser result:", created);
+const workspaceId = await CreateWorkspace({
+  messages: [],
+  user: userId, // MUST be convex id, not google id
+});
 
-        // 3) Store in localStorage + context
+
+        console.log("Workspace ID:", workspaceId);
         if (typeof window !== "undefined") {
           localStorage.setItem("user", JSON.stringify(user));
         }
         setUserDetail(user);
-
-        // 4) Close dialog
         closeDialog(false);
 
-        // 5) Build dynamic dashboard route
-        const createdId =
-          created?.id || created?._id || created || user?.sub || user?.email;
-
-        
-        router.push(`/InhubDashboard/${createdId}`);
+        const createdId = userId || user?.sub || user?.email;
+        console.log("Navigating to workspace with ID:", workspaceId);
+        router.push(`/InhubDashboard/${workspaceId}`);
       } catch (err) {
-        console.error("Login error:", err);
+        console.error("Google login error:", err);
       }
     },
-
     onError: (errorResponse) => console.log("Google Login Error:", errorResponse),
   });
+
+  /* ---------------- GITHUB LOGIN ---------------- */
+  const handleGithubLogin = () => {
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`;
+    const url = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${redirectUri}&scope=read:user%20user:email`;
+    window.location.href = url;
+  };
 
   return (
     <Dialog open={openDialog} onOpenChange={closeDialog}>
@@ -87,14 +92,23 @@ function SignInDialog({ openDialog, closeDialog }) {
                 {Lookup.SIGNIN_SUBHEADING}
               </p>
 
+              {/* Google login */}
               <Button
-                className="bg-blue-500 text-white hover:bg-blue-400 mt-3"
+                className="bg-blue-500 text-white hover:bg-blue-400 w-full"
                 onClick={() => googleLogin()}
               >
-                Sign In With Google
+                Sign in with Google
               </Button>
 
-              <p className="text-gray-500 text-center text-sm">
+              {/* GitHub login */}
+              <Button
+                className="bg-gray-800 text-white hover:bg-gray-700 w-full"
+                onClick={handleGithubLogin}
+              >
+                Sign in with GitHub
+              </Button>
+
+              <p className="text-gray-500 text-center text-sm mt-3">
                 {Lookup.SIGNIn_AGREEMENT_TEXT}
               </p>
             </div>

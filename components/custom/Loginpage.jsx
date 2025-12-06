@@ -1,179 +1,191 @@
-// src/App.jsx
+"use client";
 import React, { useState } from "react";
-import SignInDialog from "@/components/custom/SignInDialog"; 
-export default function App() {
+import SignInDialog from "@/components/custom/SignInDialog";
+
+export default function LoginPage() {
   const [openDialog, setOpenDialog] = useState(false);
-  const styles = {
-    page: {
-      minHeight: "100vh",
-      backgroundColor: "#020617",
-      color: "#f1f5f9",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "0 1rem",
-      fontFamily: "sans-serif",
-    },
-    container: {
-      width: "100%",
-      maxWidth: "410px",
-    },
-    logoWrapper: {
-      display: "flex",
-      alignItems: "center",
-      marginBottom: "3rem",
-    },
-    logoBox: {
-      width: "40px",
-      height: "40px",
-      borderRadius: "16px",
-      backgroundColor: "#7C3AED",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "14px",
-      fontWeight: "600",
-      color: "#fff",
-    },
-    logoText: {
-      marginLeft: "12px",
-      fontSize: "18px",
-      fontWeight: "600",
-      letterSpacing: "-0.5px",
-    },
-    heading: {
-      fontSize: "34px",
-      fontWeight: "600",
-      marginBottom: "2rem",
-      lineHeight: "1.1",
-    },
-    label: {
-      fontSize: "14px",
-      fontWeight: "500",
-      marginBottom: "6px",
-      display: "block",
-      color: "#e2e8f0",
-    },
-    input: {
-      width: "100%",
-      backgroundColor: "#020617",
-      border: "1px solid #334155",
-      borderRadius: "12px",
-      padding: "12px 16px",
-      fontSize: "14px",
-      color: "#f1f5f9",
-      outline: "none",
-    },
-    formGroup: {
-      marginBottom: "1.5rem",
-    },
-    forgot: {
-      fontSize: "14px",
-      fontWeight: "500",
-      color: "#38bdf8",
-      cursor: "pointer",
-      textDecoration: "none",
-    },
-    between: {
-      display: "flex",
-      justifyContent: "space-between",
-      marginBottom: "8px",
-    },
-    button: {
-      width: "100%",
-      marginTop: "1rem",
-      backgroundColor: "#7C3AED",
-      padding: "12px 0",
-      color: "white",
-      fontSize: "14px",
-      fontWeight: "600",
-      borderRadius: "12px",
-      border: "none",
-      cursor: "pointer",
-    },
-    signupText: {
-      marginTop: "1.5rem",
-      textAlign: "center",
-      fontSize: "14px",
-      color: "#94a3b8",
-    },
-    signupBtn: {
-      color: "#38bdf8",
-      fontWeight: "500",
-      cursor: "pointer",
-      background: "none",
-      border: "none",
-      fontSize: "14px",
-      marginLeft: "4px",
-    },
-  };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div className="login-page">
+      <div className="login-box">
         {/* Logo */}
-        <div style={styles.logoWrapper}>
-          <div style={styles.logoBox}>HJ</div>
-          <span style={styles.logoText}>INHUB</span>
+        <div className="logo-wrap">
+          <div className="logo-box">HJ</div>
+          <span className="logo-text">INHUB</span>
         </div>
 
-        {/* Heading */}
-        <h1 style={styles.heading}>
+        {/* Title */}
+        <h1 className="login-title">
           Log in to your
           <br /> account
         </h1>
 
+        {/* Social Login */}
+        <button className="social-btn">Sign in with Google</button>
+        <button className="social-btn">Sign in with Apple</button>
+
+        <div className="divider">
+          <span>or</span>
+        </div>
+
         {/* Form */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-          }}
-        >
-          {/* Email */}
-          <div style={styles.formGroup}>
-            <label style={styles.label} htmlFor="email">
-              Email address
-            </label>
+        <form onSubmit={(e) => e.preventDefault()}>
+          <input className="input" type="email" placeholder="user@example.com" />
+          <div className="password-line">
             <input
-              id="email"
-              type="email"
-              placeholder="user@example.com"
-              style={styles.input}
-            />
-          </div>
-
-          {/* Password */}
-          <div style={styles.formGroup}>
-            <div style={styles.between}>
-              <label style={styles.label} htmlFor="password">
-                Password
-              </label>
-
-              <a style={styles.forgot}>Forgot password?</a>
-            </div>
-
-            <input
-              id="password"
+              className="input"
               type="password"
               placeholder="••••••••"
-              style={styles.input}
             />
+            <a className="forgot">Forgot password?</a>
           </div>
-
-          <button type="submit" style={styles.button}>
+          <button className="login-btn" type="submit">
             Log in
           </button>
         </form>
 
-        {/* Sign up link */}
-        <p style={styles.signupText}>
-          Don’t have an account?
-          <button style={styles.signupBtn} onClick={()=>setOpenDialog(true)}>
+        <p className="signup">
+          Don’t have an account?{" "}
+          <button className="signup-btn" onClick={() => setOpenDialog(true)}>
             Sign up
           </button>
         </p>
       </div>
-       <SignInDialog openDialog={openDialog} closeDialog={()=>setOpenDialog(false)} />
+
+      <SignInDialog openDialog={openDialog} closeDialog={() => setOpenDialog(false)} />
+
+      <style jsx>{`
+        .login-page {
+          min-height: 100vh;
+          background: #020617;
+          color: #f8fafc;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-family: Inter, sans-serif;
+          padding: 1rem;
+        }
+        .login-box {
+          width: 100%;
+          max-width: 410px;
+          text-align: center;
+        }
+        .logo-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 2.5rem;
+        }
+        .logo-box {
+          width: 42px;
+          height: 42px;
+          border-radius: 16px;
+          background: #7c3aed;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          margin-right: 12px;
+        }
+        .logo-text {
+          font-size: 18px;
+          font-weight: 600;
+        }
+        .login-title {
+          font-size: 34px;
+          font-weight: 700;
+          line-height: 1.15;
+          margin-bottom: 2.2rem;
+        }
+        .social-btn {
+          background: white;
+          color: black;
+          font-size: 15px;
+          font-weight: 500;
+          width: 100%;
+          border-radius: 28px;
+          padding: 12px 0;
+          border: none;
+          cursor: pointer;
+          margin-bottom: 0.8rem;
+        }
+        .divider {
+          width: 100%;
+          text-align: center;
+          margin: 1.2rem 0;
+          color: #64748b;
+          font-size: 14px;
+          position: relative;
+        }
+        .divider span {
+          background: #020617;
+          padding: 0 10px;
+        }
+        .divider:before,
+        .divider:after {
+          content: "";
+          height: 1px;
+          background: #334155;
+          position: absolute;
+          top: 50%;
+          width: 42%;
+        }
+        .divider:before {
+          left: 0;
+        }
+        .divider:after {
+          right: 0;
+        }
+        .input {
+          width: 100%;
+          background: #020617;
+          border: 1px solid #334155;
+          border-radius: 12px;
+          padding: 14px;
+          font-size: 15px;
+          color: white;
+          margin-bottom: 1rem;
+        }
+        .password-line {
+          position: relative;
+        }
+        .forgot {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 13px;
+          color: #38bdf8;
+          cursor: pointer;
+        }
+        .login-btn {
+          width: 100%;
+          background: #7c3aed;
+          border: none;
+          border-radius: 12px;
+          padding: 14px 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: white;
+          cursor: pointer;
+          margin-top: 0.5rem;
+        }
+        .signup {
+          margin-top: 1.6rem;
+          color: #9ca3af;
+          font-size: 14px;
+        }
+        .signup-btn {
+          background: none;
+          border: none;
+          color: #38bdf8;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          margin-left: 4px;
+        }
+      `}</style>
     </div>
   );
 }
