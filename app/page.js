@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 
-const InhubDashboard = dynamic(
-  () => import('@/components/custom/InhubDashboard'),
+const Homepage = dynamic(
+  () => import('@/components/custom/Homepage'),
   { ssr: false }
 );
-
 export default function Home() {
-  return <InhubDashboard />;
+  return <Homepage />;
 }
+
+
+
+

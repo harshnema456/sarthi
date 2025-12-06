@@ -24,17 +24,7 @@ export const countToken = (inputText) => {
     .filter(Boolean).length;
 };
 
-/**
- * ChatView — updated styling to match your screenshot:
- * - dark navy canvas
- * - bluish AI bubbles left with small avatar
- * - user bubbles right aligned and darker
- * - top header with counts/badges
- * - large bottom composer matching the theme with Send button on right
- *
- * Props:
- * - openCode(optional) : function to navigate to Code view (parent dashboard)
- */
+
 export default function ChatView({ openCode } = {}) {
   const { id } = useParams();
   const convex = useConvex();
