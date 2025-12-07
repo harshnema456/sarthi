@@ -8,7 +8,8 @@ const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 // Configure the model
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash-lite', // Specify the model name 
+  model: 'gemini-2.5-flash',
+ // Specify the model name 
 });
 // Start a chat session with the model 
 const generationConfig = {

@@ -21,7 +21,7 @@ import { UserDetailContext } from '@/context/UserDetailContext';
 import { toast } from 'sonner';
 import { ActionContext } from '@/context/ActionContext';
 
-function CodeView() {
+function CodeView({ projectFiles, activeFile, setActiveFile, code, setCode, previewUrl, updatePreview, projectName }) {
   const { id } = useParams();
   const convex = useConvex();
 
@@ -35,9 +35,23 @@ function CodeView() {
   const UpdateFiles = useMutation(api.workspace.UpdateFiles);
   const UpdateToken = useMutation(api.users.UpdateToken);
 
-  useEffect(() => {
-    if (id) GetFiles();
-  }, [id]);
+  // useEffect(() => {
+  //   if (id) GetFiles();
+  // }, [id]);
+
+ useEffect(() => {
+  if (!projectFiles) return;
+
+  // update editor files
+  setFiles(projectFiles);
+
+  // update preview **only if we are currently in preview tab**
+  if (typeof updatePreview === "function" && previewUrl !== null) {
+    updatePreview(projectFiles);
+  }
+
+}, [projectFiles]);
+
 
   const GetFiles = async () => {
     try {

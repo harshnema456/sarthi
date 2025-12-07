@@ -37,31 +37,28 @@ function SignInDialog({ openDialog, closeDialog }) {
         );
 
         const user = userInfo.data;
-        console.log("Google User Info:", user);
         const userId = await CreateUser({
-        name: user?.name,
-        email: user?.email,
-        picture: user?.picture,
-        uid: uuid4(),
-});
+          name: user?.name,
+          email: user?.email,
+          picture: user?.picture,
+          uid: uuid4(),
+        });
 
-console.log("Convex User ID:", userId);
+        console.log("Convex User ID:", userId);
 
-const workspaceId = await CreateWorkspace({
-  messages: [],
-  user: userId, // MUST be convex id, not google id
-});
-
+        const workspaceId = await CreateWorkspace({
+          messages: [],
+          user: userId,
+        });
 
         console.log("Workspace ID:", workspaceId);
+
         if (typeof window !== "undefined") {
           localStorage.setItem("user", JSON.stringify(user));
         }
         setUserDetail(user);
-        closeDialog(false);
 
-        const createdId = userId || user?.sub || user?.email;
-        console.log("Navigating to workspace with ID:", workspaceId);
+        closeDialog(false);
         router.push(`/InhubDashboard/${workspaceId}`);
       } catch (err) {
         console.error("Google login error:", err);
@@ -81,39 +78,39 @@ const workspaceId = await CreateWorkspace({
     <Dialog open={openDialog} onOpenChange={closeDialog}>
       <DialogContent className="bg-[#0b0b0b] border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white"></DialogTitle>
-          <DialogDescription>
-            <div className="flex flex-col justify-center items-center gap-3">
-              <h2 className="font-bold text-2xl text-center text-white">
-                {Lookup.SIGNIN_HEADING}
-              </h2>
-
-              <p className="mt-2 text-center text-gray-400">
-                {Lookup.SIGNIN_SUBHEADING}
-              </p>
-
-              {/* Google login */}
-              <Button
-                className="bg-blue-500 text-white hover:bg-blue-400 w-full"
-                onClick={() => googleLogin()}
-              >
-                Sign in with Google
-              </Button>
-
-              {/* GitHub login */}
-              <Button
-                className="bg-gray-800 text-white hover:bg-gray-700 w-full"
-                onClick={handleGithubLogin}
-              >
-                Sign in with GitHub
-              </Button>
-
-              <p className="text-gray-500 text-center text-sm mt-3">
-                {Lookup.SIGNIn_AGREEMENT_TEXT}
-              </p>
-            </div>
+          <DialogTitle />
+          {/* DialogDescription MUST be plain text to avoid hydration error */}
+          <DialogDescription className="text-gray-400 text-center">
+            {Lookup.SIGNIN_SUBHEADING}
           </DialogDescription>
         </DialogHeader>
+
+        {/* 🟢 All visual layout OUTSIDE DialogDescription */}
+        <div className="flex flex-col justify-center items-center gap-4 mt-3">
+          <h2 className="font-bold text-2xl text-center text-white">
+            {Lookup.SIGNIN_HEADING}
+          </h2>
+
+          {/* Google login */}
+          <Button
+            className="bg-blue-500 text-white hover:bg-blue-400 w-full"
+            onClick={() => googleLogin()}
+          >
+            Sign in with Google
+          </Button>
+
+          {/* GitHub login */}
+          <Button
+            className="bg-gray-800 text-white hover:bg-gray-700 w-full"
+            onClick={handleGithubLogin}
+          >
+            Sign in with GitHub
+          </Button>
+
+          <p className="text-gray-500 text-center text-sm mt-3">
+            {Lookup.SIGNIn_AGREEMENT_TEXT}
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
   );

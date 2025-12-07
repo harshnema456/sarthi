@@ -199,7 +199,7 @@ export default function App() {
           <h2>Contact us</h2>
           <p>📍 23, Ramnagar Extension, Sodala, Jaipur, Rajasthan 302019 <br />
             ✉ Info@hjinfotech.com <br />
-            📞 +91 8209227702</p>
+          </p>
         </section>
 
         <footer className="footer">© {new Date().getFullYear()} INHUB</footer>

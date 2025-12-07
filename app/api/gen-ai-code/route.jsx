@@ -4,65 +4,46 @@ import { GenAiCode } from "@/configs/AiModel";
 export async function POST(req) {
   try {
     const { prompt } = await req.json();
-    console.log("Received prompt:", prompt);
+    if (!prompt) return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
 
-    if (!prompt) {
-      return NextResponse.json(
-        { error: "Missing 'prompt' in request body" },
-        { status: 400 }
-      );
-    }
-
-    // Send the prompt to the AI model via GenAiCode
     const result = await GenAiCode.sendMessage(prompt);
-    console.log("Raw GenAiCode result:", JSON.stringify(result, null, 2));
-
-    // Safely extract text
     const response = result?.response;
-    let text = undefined;
 
-    if (response) {
-      if (typeof response.text === "function") {
-        text = await response.text();
-      } else if (typeof response.text === "string") {
-        text = response.text;
-      }
-    }
-   // Validate text
-    if (!text) {
-      throw new Error("GenAi returned empty or invalid response.text");
-    }
+    let text = "";
+    if (response?.text) text = await response.text();
+    else if (typeof response === "string") text = response;
 
-    // Parse text into JSON
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error(
-        "Model returned NON-JSON text. First 500 chars:",
-        text.slice(0, 500)
-      );
-      throw new Error("Model did not return valid JSON");
-    }
+    if (!text) throw new Error("Empty AI response");
 
+    // Remove markdown and extract JSON
+    let cleaned = text
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("No JSON found in AI response");
+
+    const parsed = JSON.parse(match[0]);
+
+    // VALIDATION
     if (!parsed.files || typeof parsed.files !== "object") {
-      console.error("Parsed JSON:", parsed);
-      throw new Error(`JSON has no "files" object`);
+      throw new Error("AI JSON missing files");
     }
-// Return the files object
-    return NextResponse.json(
-      { files: parsed.files },
-      { status: 200 }
-    );
+
+    return NextResponse.json({ files: parsed.files }, { status: 200 });
 
   } catch (error) {
-    console.error("Gen AI Code API error:", error);
+    console.error("GEN AI ERROR:", error.message);
 
-    return NextResponse.json(
-      {
-        error: error?.message || "Internal Server Error",
-      },
-      { status: 500 }
-    );
-  } 
+    // FALLBACK so frontend NEVER breaks
+    const fallback = {
+      "index.html": { content: `<h1>Project failed to generate 😢</h1>`, language: "html" },
+      "styles.css": { content: `body { font-family: sans-serif; }`, language: "css" },
+      "script.js": { content: `console.log("AI generation failed");`, language: "javascript" },
+      "README.md": { content: `# AI Generation Failed\nThe model could not generate files.`, language: "markdown" }
+    };
+
+    return NextResponse.json({ files: fallback }, { status: 200 });
+  }
 }

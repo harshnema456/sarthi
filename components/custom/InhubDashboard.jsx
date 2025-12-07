@@ -22,12 +22,7 @@ import {
 } from "react-icons/fi";
 import { UserDetailContext } from '@/context/UserDetailContext';
 
-/*
-  This variant stores created projects in local state (projects[])
-  and shows them in the Recent Projects list. Opening/deleting works.
-  PreviewView is imported from ./Previewview (external file) so the
-  dashboard file stays lean and doesn't interfere with the rest of the app.
-*/
+
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: <FiGrid /> },
@@ -138,49 +133,64 @@ h1 { color:#00d4b4 }`,
     setPreviewUrl(url);
   };
 
-  const handleCreate = async () => {
-    if (!prompt.trim()) return;
-    setIsCreating(true);
-    setCreationStatus('Generating files...');
-    try {
-      const files = generateProjectFiles(prompt);
+const handleCreate = async () => {
+  if (!prompt.trim()) return;
+  setIsCreating(true);
+  setCreationStatus("Generating files...");
+
+  try {
+    // Call Gemini backend API
+    const res = await fetch("/api/gen-ai-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const data = await res.json();
+    
+    
+    if (!data.files) throw new Error("No files returned from API");
+
+    const files = data.files;
+
+    // Store project files
+    setProjectFiles(files);
+    setCode(files["index.html"]?.content || "");
+    updatePreview(files);
+
+    const newProj = {
+      id: makeId("proj-"),
+      name: prompt,
+      owner: displayName,
+      filesObj: files,
+      filesCount: Object.keys(files).length,
+      createdAt: new Date().toISOString(),
+    };
+
+    setProjects((prev) => [newProj, ...prev]);
+    setCreationStatus("Created");
+
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        text: `Project "${prompt}" created by ${displayName}.`,
+        sender: "assistant",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    setTimeout(() => {
+      setActiveTab("code");
       setProjectFiles(files);
-      setCode(files['index.html'].content);
-      updatePreview(files);
-
-      const newProj = {
-        id: makeId('proj-'),
-        name: prompt,
-        owner: displayName,
-        filesObj: files,
-        filesCount: Object.keys(files).length,
-        createdAt: new Date().toISOString(),
-      };
-
-      setProjects((prev) => [newProj, ...prev]);
-
-      setCreationStatus('Created');
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          text: `Project "${prompt}" created by ${displayName}.`,
-          sender: 'assistant',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
-      setTimeout(() => {
-        setActiveTab('code');
-        setProjectFiles(files);
-      }, 300);
-    } catch (e) {
-      console.error(e);
-      setCreationStatus('Failed to create project');
-    } finally {
-      setIsCreating(false);
-      setPrompt('');
-    }
-  };
+    }, 300);
+  } catch (e) {
+    console.error(e);
+    setCreationStatus("Failed to create project");
+  } finally {
+    setIsCreating(false);
+    setPrompt("");
+  }
+};
 
   const openProject = (proj) => {
     if (!proj) return;
