@@ -58,7 +58,7 @@ function Provider({ children }) {
               <SidebarProvider defaultOpen={false}>
                 <AppSideBar />
                 <main className="w-full">
-                  <Header />
+                  {/* <Header /> */}
                   {children}
                 </main>
               </SidebarProvider>

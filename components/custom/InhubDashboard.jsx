@@ -1,10 +1,11 @@
 // src/components/InhubDashboard.jsx
-'use client';
+"use client";
+
 import React, { useState, useEffect, useContext } from "react";
-import CodeView from '@/components/custom/CodeView';
-import ChatView from '@/components/custom/ChatView';
-import WorkspaceHistory from './WorkspaceHistory';
-import PreviewView from './Previewview';
+import CodeView from "@/components/custom/CodeView";
+import ChatView from "@/components/custom/ChatView";
+import WorkspaceHistory from "./WorkspaceHistory";
+import PreviewView from "./Previewview";
 import {
   FiGrid,
   FiFolder,
@@ -16,13 +17,8 @@ import {
   FiMoreHorizontal,
   FiTrash2,
   FiClock,
-  FiExternalLink,
-  FiRefreshCw,
-  FiX
 } from "react-icons/fi";
-import { UserDetailContext } from '@/context/UserDetailContext';
-
-
+import { UserDetailContext } from "@/context/UserDetailContext";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: <FiGrid /> },
@@ -34,21 +30,25 @@ const navItems = [
 
 export default function InhubDashboard() {
   const { userDetail } = useContext(UserDetailContext) ?? {};
-  const displayName = userDetail?.name || userDetail?.displayName || userDetail?.email?.split?.('@')?.[0] || 'Guest';
+  const displayName =
+    userDetail?.name ||
+    userDetail?.displayName ||
+    userDetail?.email?.split?.("@")?.[0] ||
+    "Guest";
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [prompt, setPrompt] = useState("");
-  const [tokensLeft, setTokensLeft] = useState(75);
-  const [tokensUsed, setTokensUsed] = useState(25);
+  const [tokensLeft] = useState(75);
+  const [tokensUsed] = useState(25);
   const [chatHistory, setChatHistory] = useState([]);
-  const [messageInput, setMessageInput] = useState('');
+  const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [code, setCode] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [creationStatus, setCreationStatus] = useState('');
+  const [creationStatus, setCreationStatus] = useState("");
   const [projectFiles, setProjectFiles] = useState({});
-  const [activeFile, setActiveFile] = useState('index.html');
+  const [activeFile, setActiveFile] = useState("index.html");
   const [projects, setProjects] = useState([]);
   const [projectCreated, setProjectCreated] = useState(false);
 
@@ -58,55 +58,15 @@ export default function InhubDashboard() {
     totalFiles: Object.keys(projectFiles).length,
   };
 
-  const makeId = (prefix = '') => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
-
-  const generateProjectFiles = (projName) => {
-    return {
-      'index.html': {
-        name: 'index.html',
-        content: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${projName}</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="container">
-    <h1>Welcome to ${projName}</h1>
-    <p>Your project has been successfully created!</p>
-    <div id="output"></div>
-  </div>
-  <script src="script.js"></script>
-</body>
-</html>`,
-        language: 'html'
-      },
-      'styles.css': {
-        name: 'styles.css',
-        content: `body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto; margin:0; padding:20px; background:#07101a; color:#dbeafe }
-.container { max-width:1200px; margin:0 auto; padding:2rem; background:#041021; border-radius:8px }
-h1 { color:#00d4b4 }`,
-        language: 'css'
-      },
-      'script.js': {
-        name: 'script.js',
-        content: `const outputElement = document.getElementById('output'); function init(){ if(outputElement) outputElement.textContent = 'JavaScript is working! ✅'; } document.addEventListener('DOMContentLoaded', init);`,
-        language: 'javascript'
-      },
-      'README.md': {
-        name: 'README.md',
-        content: `# ${projName}\n\nGenerated project.`,
-        language: 'markdown'
-      }
-    };
-  };
+  const makeId = (prefix = "") =>
+    `${prefix}${Date.now().toString(36)}${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
 
   const updatePreview = (files) => {
-    const htmlFile = files['index.html'] || { content: '<h1>No HTML</h1>' };
-    const cssFile = files['styles.css'] || { content: '' };
-    const jsFile = files['script.js'] || { content: '' };
+    const htmlFile = files["index.html"] || { content: "<h1>No HTML</h1>" };
+    const cssFile = files["styles.css"] || { content: "" };
+    const jsFile = files["script.js"] || { content: "" };
 
     const previewContent = `
       <!doctype html>
@@ -117,7 +77,7 @@ h1 { color:#00d4b4 }`,
         <style>${cssFile.content}</style>
       </head>
       <body>
-        ${htmlFile.content.replace(/<script.*?>.*?<\/script>/gs, '')}
+        ${htmlFile.content.replace(/<script.?>.?<\/script>/gs, "")}
         <script>
           try {
             ${jsFile.content}
@@ -127,157 +87,185 @@ h1 { color:#00d4b4 }`,
       </html>
     `;
 
-    const blob = new Blob([previewContent], { type: 'text/html' });
+    const blob = new Blob([previewContent], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(url);
   };
 
-const handleCreate = async () => {
-  if (!prompt.trim()) return;
-  setIsCreating(true);
-  setCreationStatus("Generating files...");
+  // Handle CREATE from dashboard prompt (Behavior B: open CODE)
+  const handleCreate = async () => {
+    if (!prompt.trim()) return;
+    setIsCreating(true);
+    setCreationStatus("Generating files...");
 
-  try {
-    // Call Gemini backend API
-    const res = await fetch("/api/gen-ai-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
-    });
+    try {
+      const res = await fetch("/api/gen-ai-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
 
-    const data = await res.json();
-    
-    
-    if (!data.files) throw new Error("No files returned from API");
+      const data = await res.json();
+      if (!data.files) throw new Error("No files returned from API");
 
-    const files = data.files;
+      const files = data.files;
 
-    // Store project files
-    setProjectFiles(files);
-    setCode(files["index.html"]?.content || "");
-    updatePreview(files);
-
-    const newProj = {
-      id: makeId("proj-"),
-      name: prompt,
-      owner: displayName,
-      filesObj: files,
-      filesCount: Object.keys(files).length,
-      createdAt: new Date().toISOString(),
-    };
-
-    setProjects((prev) => [newProj, ...prev]);
-    setCreationStatus("Created");
-
-    setChatHistory((prev) => [
-      ...prev,
-      {
-        text: `Project "${prompt}" created by ${displayName}.`,
-        sender: "assistant",
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-
-    setTimeout(() => {
-      setActiveTab("code");
       setProjectFiles(files);
-    }, 300);
-  } catch (e) {
-    console.error(e);
-    setCreationStatus("Failed to create project");
-  } finally {
-    setIsCreating(false);
-    setPrompt("");
-  }
-};
+      setCode(files["index.html"]?.content || "");
+      updatePreview(files);
+
+      const newProj = {
+        id: makeId("proj-"),
+        name: prompt,
+        owner: displayName,
+        filesObj: files,
+        filesCount: Object.keys(files).length,
+        createdAt: new Date().toISOString(),
+      };
+
+      setProjects((prev) => [newProj, ...prev]);
+      setCreationStatus("Created");
+
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          // ✅ FIXED: proper template string
+          text: `Project "${prompt}" created by ${displayName}.`,
+          sender: "assistant",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+
+      // Behavior B: go directly to CODE for dashboard-created projects
+      setTimeout(() => {
+        setActiveTab("code");
+        setProjectFiles(files);
+      }, 300);
+    } catch (e) {
+      console.error(e);
+      setCreationStatus("Failed to create project");
+    } finally {
+      setIsCreating(false);
+      setPrompt("");
+    }
+  };
 
   const openProject = (proj) => {
     if (!proj) return;
-    const projectObj = typeof proj === 'string' ? projects.find(p => p.id === proj) : proj;
+    const projectObj =
+      typeof proj === "string" ? projects.find((p) => p.id === proj) : proj;
     if (!projectObj) return;
     setProjectFiles(projectObj.filesObj || {});
-    setCode((projectObj.filesObj && projectObj.filesObj['index.html'] && projectObj.filesObj['index.html'].content) || '');
-    setActiveFile('index.html');
+    setCode(
+      (projectObj.filesObj &&
+        projectObj.filesObj["index.html"] &&
+        projectObj.filesObj["index.html"].content) ||
+        ""
+    );
+    setActiveFile("index.html");
     setProjectCreated(true);
-    setActiveTab('code');
+    setActiveTab("code");
     updatePreview(projectObj.filesObj || {});
   };
 
   const deleteProject = (projId) => {
     setProjects((prev) => prev.filter((p) => p.id !== projId));
-    const currentlyOpenIsDeleted = projectFiles && Object.keys(projectFiles).length && projects.some(p => p.id === projId && p.filesObj === projectFiles);
+    const currentlyOpenIsDeleted =
+      projectFiles &&
+      Object.keys(projectFiles).length &&
+      projects.some(
+        (p) => p.id === projId && p.filesObj === projectFiles
+      );
     if (currentlyOpenIsDeleted) {
       setProjectFiles({});
       setProjectCreated(false);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
-        setPreviewUrl('');
+        setPreviewUrl("");
       }
     }
   };
 
   const clearPreview = () => {
     if (previewUrl) {
-      try { URL.revokeObjectURL(previewUrl); } catch (e) { /* ignore */ }
+      try {
+        URL.revokeObjectURL(previewUrl);
+      } catch (e) {
+        /* ignore */
+      }
     }
-    setPreviewUrl('');
+    setPreviewUrl("");
   };
 
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, []);
+  }, [previewUrl]);
+
+  // Listen to AI_FILES_READY from ChatView (Behavior C: open PREVIEW)
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e.detail || {};
+      const files = detail.files || detail; // fallback if only files were sent
+      if (!files || typeof files !== "object") return;
+
+      setProjectFiles(files);
+      setCode(files["index.html"]?.content || "");
+      updatePreview(files);
+
+      const newProj = {
+        id: makeId("proj-"),
+        name: detail.title || "Chat generated project",
+        owner: displayName,
+        filesObj: files,
+        filesCount: Object.keys(files).length,
+        createdAt: new Date().toISOString(),
+      };
+
+      setProjects((prev) => [newProj, ...prev]);
+
+      // Behavior C: when files come from CHAT, go straight to PREVIEW
+      if (detail.source === "chat") {
+        setActiveTab("preview");
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("AI_FILES_READY", handler);
+      return () => window.removeEventListener("AI_FILES_READY", handler);
+    }
+  }, [displayName]);
 
   const renderMainContent = () => {
     switch (activeTab) {
-      case 'chat':
+      case "chat":
         return (
           <div className="content-wrap">
-            <ChatView
-              chatHistory={chatHistory}
-              setChatHistory={setChatHistory}
-              messageInput={messageInput}
-              setMessageInput={setMessageInput}
-              isTyping={isTyping}
-              setIsTyping={setIsTyping}
-              tokensLeft={tokensLeft}
-              tokensUsed={tokensUsed}
-              projectName={projects[0]?.name || ''}
-            />
+            <ChatView openCode={() => setActiveTab("code")} />
           </div>
         );
 
-      case 'code':
+      case "code":
         return (
           <div className="content-wrap">
-            <CodeView
-              projectFiles={projectFiles}
-              activeFile={activeFile}
-              setActiveFile={setActiveFile}
-              code={code}
-              setCode={setCode}
-              previewUrl={previewUrl}
-              updatePreview={() => updatePreview(projectFiles)}
-              projectName={projects[0]?.name || ''}
-            />
+            <CodeView projectFiles={projectFiles} />
           </div>
         );
 
-      case 'preview':
+      case "preview":
         return (
           <div className="content-wrap">
             <PreviewView
+              files={projectFiles}
               previewUrl={previewUrl}
-              refreshPreview={() => updatePreview(projectFiles)}
               clearPreview={clearPreview}
-              projectName={projects[0]?.name || ''}
             />
           </div>
         );
 
-      case 'projects':
+      case "projects":
         return (
           <div className="content-wrap">
             <h2 className="section-title">Projects</h2>
@@ -299,7 +287,9 @@ const handleCreate = async () => {
             <div className="hero full-hero">
               <div>
                 <h1 className="welcome">Welcome, {displayName}!</h1>
-                <p className="muted">Overview of your workspace and recent projects</p>
+                <p className="muted">
+                  Overview of your workspace and recent projects
+                </p>
               </div>
 
               <div className="create-area">
@@ -310,8 +300,12 @@ const handleCreate = async () => {
                   className="input-project"
                   aria-label="New project name"
                 />
-                <button onClick={handleCreate} className="btn-create" disabled={isCreating}>
-                  <FiPlus /> {isCreating ? 'Creating...' : 'Create'}
+                <button
+                  onClick={handleCreate}
+                  className="btn-create"
+                  disabled={isCreating}
+                >
+                  <FiPlus /> {isCreating ? "Creating..." : "Create"}
                 </button>
               </div>
             </div>
@@ -340,7 +334,9 @@ const handleCreate = async () => {
               <div className="recent-header">
                 <div>
                   <h3>Recent Projects</h3>
-                  <div className="muted small">Quick access to your latest work</div>
+                  <div className="muted small">
+                    Quick access to your latest work
+                  </div>
                 </div>
                 <div className="recent-actions">
                   <button className="ghost">Sort</button>
@@ -350,24 +346,52 @@ const handleCreate = async () => {
 
               <div className="recent-list">
                 {projects.length === 0 ? (
-                  <div className="text-muted">No projects yet — create one above.</div>
+                  <div className="text-muted">
+                    No projects yet — create one above.
+                  </div>
                 ) : (
                   projects.map((p) => (
                     <div key={p.id} className="recent-row">
                       <div className="row-left">
-                        <div className="row-avatar">{(p.name || '').slice(0,1)}</div>
+                        <div className="row-avatar">
+                          {(p.name || "").slice(0, 1)}
+                        </div>
                         <div className="row-meta">
                           <div className="row-title">{p.name}</div>
-                          <div className="row-sub muted">{p.owner ?? displayName} • {p.filesCount} files</div>
+                          <div className="row-sub muted">
+                            {p.owner ?? displayName} • {p.filesCount} files
+                          </div>
                         </div>
                       </div>
 
                       <div className="row-right">
-                        <div className="row-time muted"><FiClock /> {new Date(p.createdAt || Date.now()).toLocaleDateString()}</div>
+                        <div className="row-time muted">
+                          <FiClock />{" "}
+                          {new Date(
+                            p.createdAt || Date.now()
+                          ).toLocaleDateString()}
+                        </div>
                         <div className="row-actions">
-                          <button title="Open" onClick={() => openProject(p)} className="icon-btn">Open</button>
-                          <button title="Delete" onClick={() => deleteProject(p.id)} className="icon-btn danger"><FiTrash2 /></button>
-                          <button className="icon-more" title="More"><FiMoreHorizontal /></button>
+                          <button
+                            title="Open"
+                            onClick={() => openProject(p)}
+                            className="icon-btn"
+                          >
+                            Open
+                          </button>
+                          <button
+                            title="Delete"
+                            onClick={() => deleteProject(p.id)}
+                            className="icon-btn danger"
+                          >
+                            <FiTrash2 />
+                          </button>
+                          <button
+                            className="icon-more"
+                            title="More"
+                          >
+                            <FiMoreHorizontal />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -375,7 +399,6 @@ const handleCreate = async () => {
                 )}
               </div>
             </div>
-
           </div>
         );
     }
@@ -392,7 +415,9 @@ const handleCreate = async () => {
           {navItems.map((item) => (
             <button
               key={item.id}
-              className={`nav-btn ${activeTab === item.id ? 'active' : ''}`}
+              className={`nav-btn ${
+                activeTab === item.id ? "active" : ""
+              }`}
               onClick={() => setActiveTab(item.id)}
               aria-pressed={activeTab === item.id}
             >
@@ -403,7 +428,9 @@ const handleCreate = async () => {
         </nav>
 
         <div className="left-bottom">
-          <button className="round-ghost" title="Settings"><FiSettings /></button>
+          <button className="round-ghost" title="Settings">
+            <FiSettings />
+          </button>
         </div>
       </aside>
 
@@ -412,7 +439,7 @@ const handleCreate = async () => {
         {renderMainContent()}
       </main>
 
-      {/* Inline styling (same as previous theme, preview styles moved to Previewview file) */}
+      {/* styling */}
       <style>{`
         :root{
           --bg:#030617;

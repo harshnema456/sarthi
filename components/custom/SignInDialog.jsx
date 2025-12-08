@@ -67,25 +67,16 @@ function SignInDialog({ openDialog, closeDialog }) {
     onError: (errorResponse) => console.log("Google Login Error:", errorResponse),
   });
 
-  /* ---------------- GITHUB LOGIN ---------------- */
-  const handleGithubLogin = () => {
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`;
-    const url = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${redirectUri}&scope=read:user%20user:email`;
-    window.location.href = url;
-  };
-
   return (
     <Dialog open={openDialog} onOpenChange={closeDialog}>
       <DialogContent className="bg-[#0b0b0b] border-gray-800">
         <DialogHeader>
           <DialogTitle />
-          {/* DialogDescription MUST be plain text to avoid hydration error */}
           <DialogDescription className="text-gray-400 text-center">
             {Lookup.SIGNIN_SUBHEADING}
           </DialogDescription>
         </DialogHeader>
 
-        {/* 🟢 All visual layout OUTSIDE DialogDescription */}
         <div className="flex flex-col justify-center items-center gap-4 mt-3">
           <h2 className="font-bold text-2xl text-center text-white">
             {Lookup.SIGNIN_HEADING}
@@ -97,14 +88,6 @@ function SignInDialog({ openDialog, closeDialog }) {
             onClick={() => googleLogin()}
           >
             Sign in with Google
-          </Button>
-
-          {/* GitHub login */}
-          <Button
-            className="bg-gray-800 text-white hover:bg-gray-700 w-full"
-            onClick={handleGithubLogin}
-          >
-            Sign in with GitHub
           </Button>
 
           <p className="text-gray-500 text-center text-sm mt-3">
