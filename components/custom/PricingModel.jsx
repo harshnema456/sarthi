@@ -63,8 +63,8 @@ function PricingModel() {
                   let usr = userDetail;
                   onPaymentSuccess(pric, usr);
                 }}
-                createOrder={(data, actions) => {
-                  return actions.order.create({
+                CreateOrder={(data, actions) => {
+                  return actions.order.Create({
                     purchase_units: [
                       {
                         amount: {

@@ -1,9 +1,18 @@
 "use client";
 import React, { useState } from "react";
 import SignInDialog from "@/components/custom/SignInDialog";
-
+import { useRouter } from "next/navigation"; 
 export default function LoginPage() {
+  const router = useRouter();
   const [openDialog, setOpenDialog] = useState(false);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    // TODO: Add your login authentication logic here
+    // After successful login redirect to /Create
+    router.push("/Create");                    // ⬅ redirect happens here
+  };
 
   return (
     <div className="login-page">

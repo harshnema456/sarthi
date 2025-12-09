@@ -32,11 +32,13 @@ function SignInDialog({ openDialog, closeDialog }) {
         const userInfo = await axios.get(
           "https://www.googleapis.com/oauth2/v3/userinfo",
           {
-            headers: { Authorization: `Bearer ${tokenResponse?.access_token}` },
+            headers: { Authorization: ` Bearer ${tokenResponse?.access_token} `},
           }
         );
 
         const user = userInfo.data;
+
+        // Create user in Convex
         const userId = await CreateUser({
           name: user?.name,
           email: user?.email,
@@ -46,6 +48,7 @@ function SignInDialog({ openDialog, closeDialog }) {
 
         console.log("Convex User ID:", userId);
 
+        // Create empty workspace
         const workspaceId = await CreateWorkspace({
           messages: [],
           user: userId,
@@ -53,18 +56,26 @@ function SignInDialog({ openDialog, closeDialog }) {
 
         console.log("Workspace ID:", workspaceId);
 
+        // Store locally
         if (typeof window !== "undefined") {
           localStorage.setItem("user", JSON.stringify(user));
+          localStorage.setItem("workspaceId", workspaceId);
         }
+
+        // Save in context
         setUserDetail(user);
 
+        // Close popup and redirect to Create page (NOT dashboard)
         closeDialog(false);
-        router.push(`/InhubDashboard/${workspaceId}`);
+        router.push("/login/Create");
+
       } catch (err) {
         console.error("Google login error:", err);
       }
     },
-    onError: (errorResponse) => console.log("Google Login Error:", errorResponse),
+
+    onError: (errorResponse) =>
+      console.log("Google Login Error:", errorResponse),
   });
 
   return (

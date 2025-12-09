@@ -33,7 +33,7 @@ function Hero() {
       content: input,
     };
     setMessages(msg);
-// create new workspace with the user message
+// Create new workspace with the user message
     const workspaceId = await CreateWorkspace({
       user: userDetail._id,
       messages: [msg],

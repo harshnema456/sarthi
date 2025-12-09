@@ -56,7 +56,7 @@ function Provider({ children }) {
           <ActionContext.Provider value={{ action, setAction }}>
             <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
               <SidebarProvider defaultOpen={false}>
-                <AppSideBar />
+                {/* <AppSideBar /> */}
                 <main className="w-full">
                   {/* <Header /> */}
                   {children}

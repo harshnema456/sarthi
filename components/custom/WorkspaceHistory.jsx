@@ -1,3 +1,4 @@
+// src/components/WorkspaceHistory.jsx
 'use client';
 
 import { UserDetailContext } from '@/context/UserDetailContext';
@@ -10,6 +11,7 @@ import { useSidebar } from '../ui/sidebar';
 function WorkspaceHistory() {
   const { userDetail } = useContext(UserDetailContext);
   const [workspaceList, setWorkspaceList] = useState([]);
+  const [loading, setLoading] = useState(false);
   const convex = useConvex();
   const { toggleSidebar } = useSidebar();
 
@@ -19,25 +21,29 @@ function WorkspaceHistory() {
   }, [userDetail]);
 
   const fetchWorkspaces = async () => {
+    if (!convex) {
+      console.warn("Convex client not ready");
+      setWorkspaceList([]);
+      return;
+    }
+    setLoading(true);
     try {
-      const result = await convex.query(api.workspace.GetAllWorkspace, {
-        userId: userDetail?._id,
-      });
-      // ensure array
+      const result = await convex.query(api.workspace.GetAllWorkspace, { userId: userDetail?._id });
       setWorkspaceList(Array.isArray(result) ? result : []);
     } catch (err) {
       console.error('Failed to fetch workspaces', err);
       setWorkspaceList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // small helper to get readable date
   const formatDate = (workspace) => {
     const possible =
       workspace?.updatedAt ||
       workspace?.lastUpdated ||
       workspace?._creationTime ||
-      workspace?.messages?.[0]?.createdAt ||
+      workspace?.messages?.[0]?.CreatedAt ||
       workspace?.messages?.[0]?.timestamp;
     if (!possible) return 'Unknown';
     const d = new Date(possible);
@@ -47,38 +53,39 @@ function WorkspaceHistory() {
 
   return (
     <div className="w-full">
-      {/* Page title area — keep it lightweight in case parent already renders Projects header */}
-      <div className="mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-slate-300 text-sm">Chats • {workspaceList.length}</div>
+        <div>
+          <button onClick={fetchWorkspaces} className="px-3 py-1 rounded bg-slate-700 text-xs">Refresh</button>
+        </div>
       </div>
 
-      {/* Dark rounded panel containing the list (matches screenshot) */}
       <div className="bg-slate-800/60 rounded-2xl p-6 max-h-[72vh] overflow-y-auto custom-scrollbar">
-        {/* When no chats */}
-        {workspaceList.length === 0 ? (
+        {loading ? (
+          <p className="text-slate-400 text-sm">Loading…</p>
+        ) : workspaceList.length === 0 ? (
           <p className="text-slate-400 text-sm">No chats yet</p>
         ) : (
           <div className="space-y-4">
             {workspaceList.map((workspace) => {
               const id = workspace._id || workspace.id || workspace.workspaceId;
-              const rawTitle = workspace?.messages?.[0]?.content || workspace?.title || 'Untitled Chat';
-              const title = String(rawTitle).length > 60 ? String(rawTitle).slice(0, 60) + '…' : String(rawTitle);
+              const rawTitle =
+                workspace?.messages?.[0]?.content ||
+                workspace?.title ||
+                'Untitled Chat';
+              const title =
+                String(rawTitle).length > 60
+                  ? String(rawTitle).slice(0, 60) + '…'
+                  : String(rawTitle);
               const last = formatDate(workspace);
 
               return (
-                <Link
-                  href={`/workspace/${id}`}
-                  key={id}
-                  onClick={toggleSidebar}
-                  className="block"
-                >
-                  {/* Pill-like item with rounded left cut and very rounded right edges */}
+                <Link href={`/inhubdashboard/${id}`} key={id} onClick={toggleSidebar} className="block">
                   <div className="flex flex-col justify-center gap-1 p-4 pl-6 bg-slate-900/70 rounded-l-md rounded-r-xl hover:bg-slate-900/90 transition">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-white leading-tight">
                         {title}
                       </h3>
-                      {/* optional status badge placeholder (keeps layout like screenshot) */}
-                      {/* <span className="text-xs text-slate-400">Open</span> */}
                     </div>
 
                     <p className="text-xs text-slate-400 mt-1">
@@ -93,7 +100,6 @@ function WorkspaceHistory() {
       </div>
 
       <style jsx>{`
-        /* small custom scrollbar so it feels like screenshot */
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;
         }
@@ -101,7 +107,7 @@ function WorkspaceHistory() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: rgba(255,255,255,0.06);
+          background-color: rgba(255, 255, 255, 0.06);
           border-radius: 999px;
         }
       `}</style>

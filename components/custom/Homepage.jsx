@@ -71,7 +71,7 @@ export default function App() {
             Design Your Website
           </h1>
 
-          <div className="create-box" onClick={handleRoute}>
+          <div className="Create-box" onClick={handleRoute}>
             <span>Create new project</span>
             <span className="plus-icon" aria-hidden="true">
               +
@@ -282,7 +282,7 @@ export default function App() {
           margin: 28px 0;
           font-weight: 700;
         }
-        .create-box {
+        .Create-box {
           max-width: 920px;
           border-radius: 18px;
           border: 2px solid rgba(46, 161, 201, 0.12);
@@ -296,7 +296,7 @@ export default function App() {
           cursor: pointer;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.006), transparent);
         }
-        .create-box:hover {
+        .Create-box:hover {
           border-color: var(--accent);
           box-shadow: 0 6px 20px rgba(46, 161, 201, 0.03);
         }
@@ -440,7 +440,7 @@ export default function App() {
           }
         }
         @media (max-width: 480px) {
-          .create-box {
+          .Create-box {
             font-size: 16px;
             padding: 12px;
           }
