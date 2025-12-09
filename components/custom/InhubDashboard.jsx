@@ -445,7 +445,8 @@ export default function InhubDashboard({ initialProjectId = null }) {
   const renderProjectCard = (p) => {
     return (
       <div
-        key={p.id}
+        key={p._id}
+
         className={`project-card ${activeProjectId === p.id ? "selected" : ""}`}
         onClick={() => openProject(p)}
         role="button"
@@ -462,7 +463,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
               className="icon-small"
               onClick={(ev) => {
                 ev.stopPropagation();
-                copyId(p.id);
+                copyId(p._id);
               }}
               title="Copy ID"
               aria-label="Copy project id"
@@ -679,7 +680,11 @@ export default function InhubDashboard({ initialProjectId = null }) {
                     <div className="text-muted">No saved projects yet.</div>
                   ) : (
                     projects.slice(0, 6).map((p) => (
-                      <div key={p.id} className="recent-row" style={{ display: "flex", justifyContent: "space-between", padding: 10, alignItems: "center", gap: 8 }}>
+                      <div
+      key={p._id}   // ← fixed here
+      className={`project-card ${activeProjectId === p.id ? "selected" : ""}`}
+      onClick={() => openProject(p)}
+    >
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <div className="row-avatar">{(p.name || "").slice(0, 1)}</div>
                           <div>

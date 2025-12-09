@@ -23,9 +23,7 @@ export default defineSchema({
     }).index("by_user", ["user"]),
 
     projects: defineTable({
-        // new: frontend-stable id (e.g. 'proj-abc123')
         id: v.string(),
-
         name: v.string(),
         owner: v.string(), // human-readable owner (email or username)
         ownerId: v.optional(v.id("users")), // optional reference to users table

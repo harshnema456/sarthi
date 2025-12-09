@@ -215,7 +215,10 @@ export default function ChatView(props) {
             }
           }
         } else {
-          console.error("gen-ai-code failed", codeRes.status);
+          const errText = await codeRes.text().catch(() => "");
+          console.error("gen-ai-code failed", codeRes.status, errText);
+          toast.error(`Code generation failed (${codeRes.status}). Check console for details.`);
+          return;
         }
       } catch (err) {
         console.error("Code generation from chat failed", err);

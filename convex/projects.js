@@ -1,5 +1,5 @@
 // src/convex/projects.js
-import { query, mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -13,7 +13,7 @@ export const list = query({
     },
 });
 
-export const create = mutation({
+export const Create = mutation({
     args: {
         id: v.string(),
         name: v.string(),
