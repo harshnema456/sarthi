@@ -29,6 +29,7 @@ export default function ChatView(props) {
 
   const [userInput, setUserInput] = useState(initialPrompt || "");
   const [loading, setLoading] = useState(false);
+
   const UpdateMessages = useMutation(api.workspace.UpdateMessages);
   const UpdateToken = useMutation(api.users.UpdateToken);
 
@@ -38,119 +39,58 @@ export default function ChatView(props) {
   // store projectId from dashboard event to avoid race with prop updates
   const dashboardProjectIdRef = useRef(null);
 
-  useEffect(() => {
-    if (!id) return;
-    fetchWorkspace();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  /* ----------------- HELPERS ----------------- */
 
-  const fetchWorkspace = async () => {
+  function safeExtractResultText(data) {
+    if (!data) return null;
+    if (typeof data.result === "string" && data.result.trim()) return data.result;
+
+    if (data.response) {
+      if (typeof data.response.text === "string" && data.response.text.trim()) {
+        return data.response.text;
+      }
+      if (Array.isArray(data.response.candidates) && data.response.candidates.length) {
+        const joined = data.response.candidates
+          .map((c) =>
+            typeof c.text === "string"
+              ? c.text
+              : typeof c.content === "string"
+              ? c.content
+              : null
+          )
+          .filter(Boolean)
+          .join("\n\n");
+        if (joined) return joined;
+      }
+    }
+
+    if (typeof data === "string" && data.trim()) return data;
+    return null;
+  }
+
+  async function fetchWorkspace() {
+    if (!id) return;
     try {
       const res = await convex.query(api.workspace.GetWorkspace, {
         workspaceId: id,
       });
-      const msgs = res && Array.isArray(res.messages) ? res.messages : [];
+      const msgs =
+        res && Array.isArray(res.messages) ? res.messages : res && res.messages ? res.messages : [];
       setMessages(msgs);
       setTimeout(() => inputRef.current && inputRef.current.focus(), 200);
     } catch (err) {
       console.error("fetchWorkspace error", err);
       toast.error("Failed to load workspace");
     }
-  };
+  }
 
-  // Listen for dashboard prompts
-  useEffect(() => {
-    const onDashboardPrompt = (e) => {
-      const { prompt, projectId, autoSend } = e.detail || {};
-      if (!prompt) return;
+  async function callAi(currentMessages) {
+    if (!currentMessages || !currentMessages.length) return;
 
-      // keep projectId in a ref to avoid race where parent prop isn't yet updated
-      if (projectId) dashboardProjectIdRef.current = projectId;
-
-      setUserInput(prompt);
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          try {
-            const len = prompt.length || 0;
-            inputRef.current.selectionStart = inputRef.current.selectionEnd = len;
-          } catch (err) {
-            // ignore selection errors in some browsers
-          }
-        }
-      }, 80);
-
-      if (autoSend) {
-        // small delay so UI settles
-        setTimeout(() => {
-          const evt = new CustomEvent("CHAT_AUTO_SEND", { detail: { text: prompt, projectId } });
-          window.dispatchEvent(evt);
-        }, 250);
-      }
-    };
-
-    const onAutoSend = (e) => {
-      const { text } = e.detail || {};
-      if (text) onGenerate(text);
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
-      window.addEventListener("CHAT_AUTO_SEND", onAutoSend);
-    }
-
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
-        window.removeEventListener("CHAT_AUTO_SEND", onAutoSend);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, userDetail, id]);
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
-
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (last && last.role === "user") {
-      // trigger AI call on new user message
-      callAi();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
-  const safeExtractResultText = (data) => {
-    // common shapes:
-    // { result: "..." }
-    // { response: { text: "..." } }
-    // { response: { candidates: [ { text: "..." }, ... ] } }
-    if (!data) return null;
-    if (typeof data.result === "string" && data.result.trim()) return data.result;
-    if (data.response) {
-      if (typeof data.response.text === "string" && data.response.text.trim()) return data.response.text;
-      if (Array.isArray(data.response.candidates) && data.response.candidates.length) {
-        // try to join candidate texts
-        const joined = data.response.candidates
-          .map((c) => (typeof c.text === "string" ? c.text : typeof c.content === "string" ? c.content : null))
-          .filter(Boolean)
-          .join("\n\n");
-        if (joined) return joined;
-      }
-    }
-    return null;
-  };
-
-  const callAi = async () => {
-    if (!messages || messages.length === 0) return;
     setLoading(true);
 
-    // include system/chat prompt context
-    const PROMPT = JSON.stringify(messages) + " " + Prompt.CHAT_PROMPT;
+    const PROMPT = JSON.stringify(currentMessages) + " " + Prompt.CHAT_PROMPT;
+
     try {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
@@ -162,7 +102,6 @@ export default function ChatView(props) {
         const t = await response.text().catch(() => "");
         console.error("ai-chat failed", response.status, t);
         toast.error("AI response failed. Try again.");
-        setLoading(false);
         return;
       }
 
@@ -171,13 +110,11 @@ export default function ChatView(props) {
         throw new Error("AI JSON parse failed");
       });
 
-      // try robust extraction
-      const textResult = safeExtractResultText(data) || (typeof data === "string" ? data : null);
+      const textResult = safeExtractResultText(data);
 
       if (!textResult) {
         console.error("AI returned no result shape I understand:", data);
         toast.error("AI returned empty response");
-        setLoading(false);
         return;
       }
 
@@ -187,13 +124,13 @@ export default function ChatView(props) {
         timestamp: new Date().toISOString(),
       };
 
-      const safeMessages = Array.isArray(messages) ? messages : [];
+      const safeMessages = Array.isArray(currentMessages) ? currentMessages : [];
       const newMessages = [...safeMessages, aiMsg];
 
-      // optimistic UI update
+      // optimistic UI
       setMessages(newMessages);
 
-      // persist messages (fire-and-forget but log failures)
+      // persist with AI msg
       try {
         await UpdateMessages({
           messages: newMessages,
@@ -201,12 +138,12 @@ export default function ChatView(props) {
         });
       } catch (err) {
         console.error("UpdateMessages failed:", err);
-        // don't block UX — it's persisted best-effort
       }
 
       // token accounting (simple word count)
       try {
-        const currentToken = Number(userDetail && typeof userDetail.token === "number" ? userDetail.token : 0);
+        const currentToken =
+          userDetail && typeof userDetail.token === "number" ? userDetail.token : 0;
         const usedTokens = Number(countToken(JSON.stringify(aiMsg)));
         const newToken = currentToken - usedTokens;
 
@@ -238,7 +175,8 @@ export default function ChatView(props) {
           if (codeData && codeData.files) {
             if (typeof window !== "undefined") {
               // prefer dashboardProjectIdRef (dashboard event) then activeProjectId prop
-              const projectIdForFiles = dashboardProjectIdRef.current || activeProjectId || null;
+              const projectIdForFiles =
+                dashboardProjectIdRef.current || activeProjectId || null;
 
               window.dispatchEvent(
                 new CustomEvent("AI_FILES_READY", {
@@ -257,9 +195,6 @@ export default function ChatView(props) {
             if (typeof openCode === "function") {
               openCode();
             }
-          } else {
-            // code endpoint returned no files
-            // console.info("gen-ai-code returned no files", codeData);
           }
         } else {
           console.error("gen-ai-code failed", codeRes.status);
@@ -273,43 +208,47 @@ export default function ChatView(props) {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const onGenerate = (text) => {
-    const t = String(text || "").trim();
-    if (!t) return;
+  // unified send handler (with token check + AI trigger)
+  function sendUserMessage(content) {
+    const text = String(content).trim();
+    if (!text) return;
 
-    const tokenLeft = userDetail && typeof userDetail.token === "number" ? userDetail.token : 0;
+    const tokenLeft =
+      userDetail && typeof userDetail.token === "number" ? userDetail.token : 0;
     if (tokenLeft < 10) {
       toast.error("You don't have enough token to generate content");
       return;
     }
 
-    const userMsg = {
+    const newMessage = {
       role: "user",
-      content: t,
+      content: text,
       timestamp: new Date().toISOString(),
     };
 
-    // append and persist
     setMessages((prev) => {
       const safePrev = Array.isArray(prev) ? prev : [];
-      const arr = [...safePrev, userMsg];
-      // persist in background
+      const updated = [...safePrev, newMessage];
+
+      // persist user message
       UpdateMessages({
-        messages: arr,
+        messages: updated,
         workspaceId: id,
-      }).catch((e) => {
-        console.error("persist user msg failed", e);
-      });
-      return arr;
+      }).catch((e) => console.error("UpdateMessages failed:", e));
+
+      // trigger AI with updated conversation
+      callAi(updated);
+
+      return updated;
     });
 
     setUserInput("");
     setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
-  };
+  }
 
-  const clearConversation = async () => {
+  async function clearConversation() {
     setMessages([]);
     try {
       await UpdateMessages({ messages: [], workspaceId: id });
@@ -318,25 +257,25 @@ export default function ChatView(props) {
       console.error("clearConversation", e);
       toast.error("Failed to clear conversation");
     }
-  };
+  }
 
-  const copy = async (txt) => {
+  async function copy(txt) {
     try {
       await navigator.clipboard.writeText(txt);
       toast.success("Copied");
     } catch {
       toast.error("Copy failed");
     }
-  };
+  }
 
-  const handleKeyDown = (e) => {
+  function handleKeyDown(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      if (!loading) onGenerate(userInput);
+      if (!loading) sendUserMessage(userInput);
     }
-  };
+  }
 
-  const formatTime = (iso) => {
+  function formatTime(iso) {
     if (!iso) return "";
     try {
       const d = new Date(iso);
@@ -344,19 +283,30 @@ export default function ChatView(props) {
     } catch {
       return "";
     }
-  };
+  }
 
-  // more stable message key: prefer timestamp, fall back to index
-  const renderMessage = (m, i) => {
+  function renderMessage(m, i) {
     const isUser = m.role === "user";
-    const isAi = m.role === "ai" || m.role === "assistant" || m.role === "system";
+    const isAi =
+      m.role === "ai" || m.role === "assistant" || m.role === "system";
 
-    const avatarSrc = userDetail && userDetail.picture ? userDetail.picture : "/avatar-placeholder.png";
+    const avatarSrc =
+      userDetail && userDetail.picture
+        ? userDetail.picture
+        : "/avatar-placeholder.png";
 
-    const key = (m && (m.timestamp || m.id)) ? `${m.timestamp || m.id}-${i}` :`msg-${i}`;
+    const key =
+      (m && (m.timestamp || m.id))
+        ? `${m.timestamp || m.id}-${i}`
+        : `msg-${i}`;
 
     return (
-      <div key={key} className={`w-full flex mb-5 ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        key={key}
+        className={`w-full flex mb-5 ${
+          isUser ? "justify-end" : "justify-start"
+        }`}
+      >
         {!isUser && (
           <div className="mr-4 shrink-0">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-800">
@@ -366,19 +316,40 @@ export default function ChatView(props) {
         )}
 
         <div className="max-w-[72%]">
-          <div className={`rounded-xl p-4 relative ${isUser ? "bg-[#0f1318] text-slate-100 border border-slate-800" : "bg-[#3c6a8b] text-white"}} style={isUser ? {} : { boxShadow: "0 6px 18px rgba(34,67,95,0.45)" }`}>
+          <div
+            className={`rounded-xl p-4 relative ${
+              isUser
+                ? "bg-[#0f1318] text-slate-100 border border-slate-800"
+                : "bg-[#3c6a8b] text-white"
+            }`}
+            style={
+              isUser
+                ? {}
+                : { boxShadow: "0 6px 18px rgba(34,67,95,0.45)" }
+            }
+          >
             <div className="flex items-start justify-between">
               <div className="text-xs text-slate-200">
                 <span className="font-medium">{isUser ? "You" : "AI"}</span>
-                <span className="ml-3 text-[11px] text-slate-200/70">{formatTime(m.timestamp)}</span>
+                <span className="ml-3 text-[11px] text-slate-200/70">
+                  {formatTime(m.timestamp)}
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
-                <button onClick={() => copy(m.content)} title="Copy" className="p-1 rounded hover:bg-white/5">
+                <button
+                  onClick={() => copy(m.content)}
+                  title="Copy"
+                  className="p-1 rounded hover:bg-white/5"
+                >
                   <Copy size={14} />
                 </button>
                 {openCode && isAi && (
-                  <button onClick={() => openCode()} title="Open Code" className="p-1 rounded hover:bg-white/5">
+                  <button
+                    onClick={() => openCode()}
+                    title="Open Code"
+                    className="p-1 rounded hover:bg-white/5"
+                  >
                     <Code size={14} />
                   </button>
                 )}
@@ -400,10 +371,103 @@ export default function ChatView(props) {
         )}
       </div>
     );
-  };
+  }
 
-  const messagesCount = messages && Array.isArray(messages) ? messages.length : 0;
-  const tokensLeft = userDetail && typeof userDetail.token === "number" ? userDetail.token : 0;
+  /* ----------------- HOOKS ----------------- */
+
+  // load workspace messages
+  useEffect(() => {
+    fetchWorkspace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // auto scroll to bottom on new messages / loading state
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
+
+  // Auto pick up pending prompt from Create page (localStorage bridge)
+  useEffect(() => {
+    try {
+      const pending = window.localStorage.getItem("pendingPrompt");
+
+      if (pending && pending.trim()) {
+        window.localStorage.removeItem("pendingPrompt");
+        setUserInput(pending);
+        sendUserMessage(pending);
+        return;
+      }
+
+      // fallback: initialPrompt prop support
+      if (initialPrompt && initialPrompt.trim()) {
+        setUserInput(initialPrompt);
+      }
+    } catch (err) {
+      console.error("Failed to read pendingPrompt", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for dashboard prompts (DASHBOARD_PROMPT / CHAT_AUTO_SEND)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onDashboardPrompt = (e) => {
+      const { prompt, projectId, autoSend } = e.detail || {};
+      if (!prompt) return;
+
+      if (projectId) dashboardProjectIdRef.current = projectId;
+
+      setUserInput(prompt);
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          try {
+            const len = prompt.length || 0;
+            inputRef.current.selectionStart = inputRef.current.selectionEnd = len;
+          } catch (err) {
+            // ignore selection errors
+          }
+        }
+      }, 80);
+
+      if (autoSend) {
+        setTimeout(() => {
+          const evt = new CustomEvent("CHAT_AUTO_SEND", {
+            detail: { text: prompt, projectId },
+          });
+          window.dispatchEvent(evt);
+        }, 250);
+      }
+    };
+
+    const onAutoSend = (e) => {
+      const { text } = e.detail || {};
+      if (text) {
+        sendUserMessage(text);
+      }
+    };
+
+    window.addEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
+    window.addEventListener("CHAT_AUTO_SEND", onAutoSend);
+
+    return () => {
+      window.removeEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
+      window.removeEventListener("CHAT_AUTO_SEND", onAutoSend);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userDetail, id]);
+
+  const messagesCount =
+    messages && Array.isArray(messages) ? messages.length : 0;
+  const tokensLeft =
+    userDetail && typeof userDetail.token === "number"
+      ? userDetail.token
+      : 0;
+
+  /* ----------------- RENDER ----------------- */
 
   return (
     <div className="h-[83vh] flex flex-col">
@@ -419,38 +483,65 @@ export default function ChatView(props) {
 
           <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
             <span className="text-xs">💎</span>
-            <span>Tokens: <span className="font-medium ml-1">{tokensLeft}</span></span>
+            <span>
+              Tokens: <span className="font-medium ml-1">{tokensLeft}</span>
+            </span>
           </div>
 
           {activeProjectId && (
             <div className="inline-flex items-center gap-2 bg-[#041020] px-3 py-1 rounded border border-slate-800 text-xs text-slate-300">
               <span>Project:</span>
-              <span className="font-mono text-[11px] text-[#00d4b4]">{activeProjectId}</span>
+              <span className="font-mono text-[11px] text-[#00d4b4]">
+                {activeProjectId}
+              </span>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={clearConversation} className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]" title="Clear">
+          <button
+            onClick={clearConversation}
+            className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]"
+            title="Clear"
+          >
             <Trash2 size={16} />
           </button>
-          <button onClick={() => {
-            if (typeof window !== "undefined" && window.document) {
-              const el = window.document.getElementById("sidebar-toggle");
-              if (el) el.click();
-            }
-          }} className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]" title="Toggle sidebar">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && window.document) {
+                const el = window.document.getElementById("sidebar-toggle");
+                if (el) el.click();
+              }
+            }}
+            className="p-2 rounded bg-[#0f1724] border border-slate-800 hover:bg-[#111827]"
+            title="Toggle sidebar"
+          >
             <Link size={16} />
           </button>
         </div>
       </div>
 
       {/* messages area */}
-      <div ref={containerRef} className="flex-1 overflow-auto p-6" style={{ background: "#0b0b0c", borderTop: "8px solid rgba(30,40,60,0.6)" }}>
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto p-6"
+        style={{
+          background: "#0b0b0c",
+          borderTop: "8px solid rgba(30,40,60,0.6)",
+        }}
+      >
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-xl bg-[#070707] p-6" style={{ minHeight: "48vh", border: "1px solid rgba(255,255,255,0.02)" }}>
-            {(!messages || messages.length === 0) ? (
-              <div className="text-slate-400 italic">No messages yet — start the conversation</div>
+          <div
+            className="rounded-xl bg-[#070707] p-6"
+            style={{
+              minHeight: "48vh",
+              border: "1px solid rgba(255,255,255,0.02)",
+            }}
+          >
+            {!messages || messages.length === 0 ? (
+              <div className="text-slate-400 italic">
+                No messages yet — start the conversation
+              </div>
             ) : (
               messages.map((m, i) => renderMessage(m, i))
             )}
@@ -468,11 +559,26 @@ export default function ChatView(props) {
       {/* composer */}
       <div className="px-6 pb-6 pt-2">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-xl bg-[#0f1318] p-5 flex items-start gap-4" style={{ border: "1px solid rgba(255,255,255,0.02)" }}>
+          <div
+            className="rounded-xl bg-[#0f1318] p-5 flex items-start gap-4"
+            style={{ border: "1px solid rgba(255,255,255,0.02)" }}
+          >
             <div>
               {userDetail ? (
-                <button className="w-12 h-12 rounded-full overflow-hidden border border-slate-800" onClick={() => {}}>
-                  <Image src={userDetail && userDetail.picture ? userDetail.picture : "/avatar-placeholder.png"} width={48} height={48} alt="profile" />
+                <button
+                  className="w-12 h-12 rounded-full overflow-hidden border border-slate-800"
+                  onClick={() => {}}
+                >
+                  <Image
+                    src={
+                      userDetail && userDetail.picture
+                        ? userDetail.picture
+                        : "/avatar-placeholder.png"
+                    }
+                    width={48}
+                    height={48}
+                    alt="profile"
+                  />
                 </button>
               ) : (
                 <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800" />
@@ -485,7 +591,9 @@ export default function ChatView(props) {
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={Lookup.INPUT_PLACEHOLDER || "What do you want to build?"}
+                placeholder={
+                  Lookup.INPUT_PLACEHOLDER || "What do you want to build?"
+                }
                 className="w-full bg-transparent resize-none outline-none text-slate-100 min-h-[84px] max-h-[180px] p-2"
                 disabled={loading}
               />
@@ -499,20 +607,33 @@ export default function ChatView(props) {
 
                 <div className="flex items-center gap-3">
                   {openCode && (
-                    <button onClick={() => openCode()} className="px-3 py-2 rounded bg-[#0d1a24] border border-slate-800 hover:bg-[#0f2633]" title="Open Code">
+                    <button
+                      onClick={() => openCode()}
+                      className="px-3 py-2 rounded bg-[#0d1a24] border border-slate-800 hover:bg-[#0f2633]"
+                      title="Open Code"
+                    >
                       <Code size={14} />
                     </button>
                   )}
 
-                  <button onClick={() => onGenerate(userInput)} disabled={loading || !userInput.trim()} className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#2b66d6] hover:bg-[#2a5fcc] disabled:opacity-50">
-                    {loading ? <Loader2Icon className="animate-spin" /> : <ArrowRight size={16} />}
+                  <button
+                    onClick={() => sendUserMessage(userInput)}
+                    disabled={loading || !userInput.trim()}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#2b66d6] hover:bg-[#2a5fcc] disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <Loader2Icon className="animate-spin" />
+                    ) : (
+                      <ArrowRight size={16} />
+                    )}
                     <span>Send</span>
                   </button>
                 </div>
               </div>
 
               <div className="mt-2 text-xs text-slate-500">
-                Tip: press <span className="font-medium">Ctrl/Cmd + Enter</span> to send. Press Enter for newline.
+                Tip: press <span className="font-medium">Ctrl/Cmd + Enter</span>{" "}
+                to send. Press Enter for newline.
               </div>
             </div>
           </div>

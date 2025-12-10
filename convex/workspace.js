@@ -61,7 +61,7 @@ export const UpdateFiles = mutation({
     },
 });
 
-// 🔥 store GitHub repo info for this workspace
+//store GitHub repo info for this workspace
 export const UpdateGithubInfo = mutation({
     args: {
         workspaceId: v.id("workspace"),

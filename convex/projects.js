@@ -1,5 +1,5 @@
 // src/convex/projects.js
-import { mutation, query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -13,7 +13,7 @@ export const list = query({
     },
 });
 
-export const Create = mutation({
+export const create = mutation({
     args: {
         id: v.string(),
         name: v.string(),
@@ -54,6 +54,14 @@ export const update = mutation({
         id: v.string(), // FIX: you previously used v.id("projects") which requires a DB _id, not your custom id
         filesObj: v.optional(v.any()),
         filesCount: v.optional(v.float64()),
+
+        // Added optional fields so passing them from the client won't fail validation:
+        name: v.optional(v.string()),
+        owner: v.optional(v.string()),
+
+        // If you ever need to update relational pointers:
+        ownerId: v.optional(v.id("users")),
+        workspaceId: v.optional(v.id("workspace")),
     },
 
     handler: async(ctx, args) => {
@@ -68,9 +76,26 @@ export const update = mutation({
 
         if (args.filesObj !== undefined) patch.filesObj = args.filesObj;
         if (args.filesCount !== undefined) patch.filesCount = args.filesCount;
+        if (args.name !== undefined) patch.name = args.name;
+        if (args.owner !== undefined) patch.owner = args.owner;
+        if (args.ownerId !== undefined) patch.ownerId = args.ownerId;
+        if (args.workspaceId !== undefined) patch.workspaceId = args.workspaceId;
 
-        await ctx.db.patch(existing._id, patch);
+        // Only patch if there's something to change
+        if (Object.keys(patch).length > 0) {
+            await ctx.db.patch(existing._id, patch);
+        }
     },
+});
+export const getById = query({
+  args: { id: v.string(), owner: v.string() },
+  handler: async (ctx, { id, owner }) => {
+    return await ctx.db
+      .query("projects")
+      .filter(q => q.eq(q.field("id"), id))
+      .filter(q => q.eq(q.field("owner"), owner))
+      .first();
+  },
 });
 
 export const remove = mutation({

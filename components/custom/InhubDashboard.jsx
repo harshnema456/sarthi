@@ -1,9 +1,8 @@
 "use client";
-// import InhubDashboard from "@/components/custom/InhubDashboard";
+
 import React, { useState, useEffect, useContext, useRef } from "react";
 import CodeView from "@/components/custom/CodeView";
 import ChatView from "@/components/custom/ChatView";
-import WorkspaceHistory from "./WorkspaceHistory";
 import PreviewView from "./Previewview";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -20,6 +19,17 @@ import {
   FiExternalLink,
 } from "react-icons/fi";
 import { UserDetailContext } from "@/context/UserDetailContext";
+
+/* ========= DEDUPE HELPER (GLOBAL) ========= */
+const uniqueProjects = (list = []) => {
+  const map = new Map();
+  for (const p of list) {
+    if (p && p.id) {
+      map.set(p.id, p);
+    }
+  }
+  return Array.from(map.values());
+};
 
 /* keys/localStorage */
 const STORAGE_KEY = "inhub_projects_v1";
@@ -52,41 +62,48 @@ export default function InhubDashboard({ initialProjectId = null }) {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projectFiles, setProjectFiles] = useState({});
-  const [code, setCode] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
 
   const promptRef = useRef(null);
 
-  // make id
+  // ========= UTILS =========
   const makeId = (prefix = "") =>
     `${prefix}${Date.now().toString(36)}${Math.random()
       .toString(36)
       .slice(2, 6)}`;
 
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString();
+  };
+
+  const upsertProject = (proj) => {
+    if (!proj?.id) return;
+    setProjects((prev) =>
+      uniqueProjects([proj, ...(prev || []).filter((p) => p.id !== proj.id)])
+    );
+  };
+
+  // ========= INITIAL LOAD =========
   useEffect(() => {
     const fetchAndOpenProject = async () => {
-      if (initialProjectId) {
-        try {
-          const proj = await CreateProject ? await (async () => {
-            // prefer convex query if available
-            try {
-              return await fetch(`/api/projects/get?id=${initialProjectId}`).then((r) => r.json());
-            } catch (e) {
-              return null;
-            }
-          })() : null;
-          if (proj) openProject(proj);
-        } catch (e) {
-          // fallback attempt to use convex API directly if set up
-          try {
-            const proj = await (typeof window !== "undefined" && window.fetch ? fetch(`/api/projects/get?id=${initialProjectId}`).then((r) => r.json()) : null);
-            if (proj) openProject(proj);
-          } catch (err) {}
-        }
+      if (!initialProjectId) return;
+
+      try {
+        const proj = await fetch(
+          `/api/projects/get?id=${initialProjectId}`
+        ).then((r) => r.json());
+        if (proj) openProject(proj);
+      } catch (e) {
+        console.warn("fetch initial project failed", e);
       }
     };
+
     fetchAndOpenProject();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialProjectId]);
@@ -94,12 +111,15 @@ export default function InhubDashboard({ initialProjectId = null }) {
   // hydrate projects from convex or localStorage fallback
   useEffect(() => {
     if (projectsQuery && Array.isArray(projectsQuery)) {
-      setProjects(projectsQuery);
-    } else {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) setProjects(JSON.parse(raw));
-      } catch (e) {}
+      setProjects(uniqueProjects(projectsQuery));
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setProjects(uniqueProjects(JSON.parse(raw)));
+    } catch (e) {
+      console.warn("local projects parse failed", e);
     }
   }, [projectsQuery]);
 
@@ -107,17 +127,35 @@ export default function InhubDashboard({ initialProjectId = null }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-    } catch (e) {}
+    } catch (e) {
+      console.warn("localStorage save failed", e);
+    }
   }, [projects]);
 
   useEffect(() => {
     try {
-      if (activeProjectId) localStorage.setItem(STORAGE_ACTIVE_KEY, activeProjectId);
-      else localStorage.removeItem(STORAGE_ACTIVE_KEY);
-    } catch (e) {}
+      if (activeProjectId) {
+        localStorage.setItem(STORAGE_ACTIVE_KEY, activeProjectId);
+      } else {
+        localStorage.removeItem(STORAGE_ACTIVE_KEY);
+      }
+    } catch (e) {
+      console.warn("active project save failed", e);
+    }
   }, [activeProjectId]);
 
-  // update preview from files -> Create blob url
+  // ========= PREVIEW =========
+  const clearPreview = () => {
+    if (previewUrl) {
+      try {
+        URL.revokeObjectURL(previewUrl);
+      } catch (e) {
+        console.warn("revoke preview url failed", e);
+      }
+    }
+    setPreviewUrl("");
+  };
+
   const updatePreview = (files) => {
     if (!files || typeof files !== "object") {
       clearPreview();
@@ -127,7 +165,11 @@ export default function InhubDashboard({ initialProjectId = null }) {
     const htmlFile = files["index.html"] || { content: "<h1>No HTML</h1>" };
     const cssFile = files["styles.css"] || { content: "" };
     const jsFile = files["script.js"] || { content: "" };
-    const sanitizedHtml = htmlFile.content.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+
+    const sanitizedHtml = htmlFile.content.replace(
+      /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
+      ""
+    );
 
     const previewContent = `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1" /><style>${cssFile.content}</style></head><body>${sanitizedHtml}<script>try{${jsFile.content}}catch(e){console.error(e)}</script></body></html>`;
 
@@ -141,7 +183,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
       }
       setPreviewUrl(url);
     } catch (e) {
-      console.error("Could not Create preview blob", e);
+      console.error("Could not create preview blob", e);
       clearPreview();
     }
   };
@@ -156,22 +198,12 @@ export default function InhubDashboard({ initialProjectId = null }) {
     };
   }, [previewUrl]);
 
-  const clearPreview = () => {
-    if (previewUrl) {
-      try {
-        URL.revokeObjectURL(previewUrl);
-      } catch (e) {}
-    }
-    setPreviewUrl("");
-  };
-
-  // Create project (from dashboard prompt)
-  const handleCreate = async (fromSuggestion = false, autoSend = true) => {
+  // ========= CREATE PROJECT =========
+  const handleCreate = async (_fromSuggestion = false, autoSend = true) => {
     if (!prompt.trim()) return;
     setIsCreating(true);
 
     try {
-      // Reuse existing active project if present
       let projId = activeProjectId;
 
       if (!projId) {
@@ -185,17 +217,10 @@ export default function InhubDashboard({ initialProjectId = null }) {
           CreatedAt: new Date().toISOString(),
         };
 
-        // optimistic local add but avoid duplicates if it somehow already exists
-        setProjects((prev) => {
-          if (!Array.isArray(prev)) return [newProj];
-          if (prev.find((p) => p.id === projId)) return prev;
-          return [newProj, ...prev];
-        });
-
+        upsertProject(newProj);
         setProjectFiles({});
-        setCode("");
+        updatePreview({});
 
-        // persist to Convex (fire-and-forget)
         (async () => {
           try {
             await CreateProject(newProj);
@@ -205,10 +230,8 @@ export default function InhubDashboard({ initialProjectId = null }) {
         })();
       }
 
-      // set active project so ChatView gets it in props
       setActiveProjectId(projId);
 
-      // dispatch event for ChatView to pick up — small delay so prop flows
       if (typeof window !== "undefined") {
         setTimeout(() => {
           window.dispatchEvent(
@@ -219,7 +242,6 @@ export default function InhubDashboard({ initialProjectId = null }) {
         }, 80);
       }
 
-      // switch to chat
       setActiveTab("chat");
     } finally {
       setIsCreating(false);
@@ -227,40 +249,42 @@ export default function InhubDashboard({ initialProjectId = null }) {
     }
   };
 
-  // open project
+  // ========= OPEN PROJECT =========
   const openProject = async (proj) => {
     if (!proj) return;
-    const projectObj = typeof proj === "string" ? projects.find((p) => p.id === proj) : proj;
+    const projectObj =
+      typeof proj === "string"
+        ? projects.find((p) => p.id === proj)
+        : proj;
+
     if (!projectObj) {
-      // try fetch from server
       try {
-        const fetched = await fetch(`/api/projects/get?id=${proj}`).then((r) => r.json()).catch(() => null);
+        const fetched = await fetch(`/api/projects/get?id=${proj}`)
+          .then((r) => r.json())
+          .catch(() => null);
+
         if (fetched) {
-          setProjects((prev) => {
-            if (!Array.isArray(prev)) return [fetched];
-            // avoid duplicates
-            if (prev.find((p) => p.id === fetched.id)) return prev.map(p => p.id === fetched.id ? fetched : p);
-            return [fetched, ...prev];
-          });
+          upsertProject(fetched);
           return openProject(fetched);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("openProject fetch failed", e);
+      }
       return;
     }
 
     setActiveProjectId(projectObj.id);
     setProjectFiles(projectObj.filesObj || {});
-    setCode(projectObj.filesObj?.["index.html"]?.content || "");
     updatePreview(projectObj.filesObj || {});
     setActiveTab("code");
   };
 
-  // delete project
+  // ========= DELETE PROJECT =========
   const deleteProject = async (projId) => {
     if (!projId) return;
     if (!confirm("Delete project? This cannot be undone.")) return;
 
-    setProjects((prev) => prev.filter((p) => p.id !== projId));
+    setProjects((prev) => (prev || []).filter((p) => p.id !== projId));
     try {
       await removeProject({ id: projId, owner: displayName });
     } catch (e) {
@@ -270,15 +294,15 @@ export default function InhubDashboard({ initialProjectId = null }) {
     if (activeProjectId === projId) {
       setActiveProjectId(null);
       setProjectFiles({});
-      setCode("");
       clearPreview();
     }
   };
 
-  // save current project (persist server-side)
+  // ========= SAVE PROJECT =========
   const saveCurrentProject = async (opts = {}) => {
     const pid = activeProjectId || makeId("proj-");
-    const title = opts.title || prompt || `Project ${new Date().toLocaleString()}`;
+    const title =
+      opts.title || prompt || `Project ${new Date().toLocaleString()}`;
 
     const project = {
       id: pid,
@@ -289,33 +313,26 @@ export default function InhubDashboard({ initialProjectId = null }) {
       CreatedAt: new Date().toISOString(),
     };
 
-    // local optimistic update (replace if exists)
-    setProjects((prev) => {
-      const idx = Array.isArray(prev) ? prev.findIndex((p) => p.id === pid) : -1;
-      if (idx >= 0) {
-        const clone = [...prev];
-        clone[idx] = { ...clone[idx], ...project };
-        return clone;
-      }
-      return [project, ...(Array.isArray(prev) ? prev : [])];
-    });
-
+    upsertProject(project);
     setActiveProjectId(pid);
 
-    // try Create then update if needed
     try {
       await CreateProject(project);
     } catch (err) {
-      // if exists, update
       try {
-        await updateProject({ id: pid, filesObj: project.filesObj, filesCount: project.filesCount, owner: project.owner });
+        await updateProject({
+          id: pid,
+          filesObj: project.filesObj,
+          filesCount: project.filesCount,
+          owner: project.owner,
+        });
       } catch (e) {
         console.warn("Could not persist project to server", e);
       }
     }
   };
 
-  // listen for AI generated files & file updates
+  // ========= AI / FILE UPDATE EVENTS =========
   useEffect(() => {
     const onAIFiles = (e) => {
       const detail = e.detail || {};
@@ -325,54 +342,37 @@ export default function InhubDashboard({ initialProjectId = null }) {
       const projId = detail.projectId || activeProjectId || makeId("proj-");
       const title = detail.title || prompt || "Chat generated project";
 
+      const updatedProj = {
+        id: projId,
+        name: title,
+        owner: displayName,
+        filesObj: files,
+        filesCount: Object.keys(files).length,
+        CreatedAt: new Date().toISOString(),
+      };
+
       setProjectFiles(files);
-      setCode(files["index.html"]?.content || "");
       updatePreview(files);
-
-      setProjects((prev) => {
-        const existingIndex = Array.isArray(prev) ? prev.findIndex((p) => p.id === projId) : -1;
-        const base = existingIndex >= 0 ? prev[existingIndex] : { id: projId, owner: displayName };
-        const updated = {
-          ...base,
-          id: projId,
-          name: base.name || title,
-          owner: base.owner || displayName,
-          filesObj: files,
-          filesCount: Object.keys(files).length,
-          CreatedAt: base.CreatedAt || new Date().toISOString(),
-        };
-        if (existingIndex >= 0) {
-          const clone = [...prev];
-          clone[existingIndex] = updated;
-          return clone;
-        }
-        return [updated, ...(Array.isArray(prev) ? prev : [])];
-      });
-
+      upsertProject(updatedProj);
       setActiveProjectId(projId);
 
-      // persist to server asynchronously (Create then update if needed)
       (async () => {
         try {
-          await CreateProject({
-            id: projId,
-            name: title,
-            owner: displayName,
-            filesObj: files,
-            filesCount: Object.keys(files).length,
-            CreatedAt: new Date().toISOString(),
-          });
+          await CreateProject(updatedProj);
         } catch (err) {
-          // if Create fails, try update
           try {
-            await updateProject({ id: projId, filesObj: files, filesCount: Object.keys(files).length, owner: displayName });
+            await updateProject({
+              id: projId,
+              filesObj: files,
+              filesCount: Object.keys(files).length,
+              owner: displayName,
+            });
           } catch (e) {
             console.warn("persist AI files failed", e);
           }
         }
       })();
 
-      // navigate Code -> Preview for UX
       setActiveTab("code");
       setTimeout(() => setActiveTab("preview"), 250);
     };
@@ -381,41 +381,31 @@ export default function InhubDashboard({ initialProjectId = null }) {
       const detail = e.detail || {};
       const files = detail.files || detail;
       if (!files || typeof files !== "object") return;
+
       const projId = detail.projectId || activeProjectId || makeId("proj-");
 
+      const updatedProj = {
+        id: projId,
+        name: prompt || `Project ${new Date().toLocaleString()}`,
+        owner: displayName,
+        filesObj: files,
+        filesCount: Object.keys(files).length,
+        CreatedAt: new Date().toISOString(),
+      };
+
       setProjectFiles(files);
-      setCode(files["index.html"]?.content || "");
       updatePreview(files);
-
-      setProjects((prev) => {
-        const idx = Array.isArray(prev) ? prev.findIndex((p) => p.id === projId) : -1;
-        if (idx >= 0) {
-          const clone = [...prev];
-          clone[idx] = {
-            ...clone[idx],
-            filesObj: files,
-            filesCount: Object.keys(files).length,
-          };
-          return clone;
-        }
-        // Create new
-        const newProj = {
-          id: projId,
-          name: prompt || `Project ${new Date().toLocaleString()}`,
-          owner: displayName,
-          filesObj: files,
-          filesCount: Object.keys(files).length,
-          CreatedAt: new Date().toISOString(),
-        };
-        return [newProj, ...(Array.isArray(prev) ? prev : [])];
-      });
-
+      upsertProject(updatedProj);
       setActiveProjectId(projId);
 
-      // persist update
       (async () => {
         try {
-          await updateProject({ id: projId, filesObj: files, filesCount: Object.keys(files).length, owner: displayName });
+          await updateProject({
+            id: projId,
+            filesObj: files,
+            filesCount: Object.keys(files).length,
+            owner: displayName,
+          });
         } catch (e) {
           console.warn("convex update failed", e);
         }
@@ -432,7 +422,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
     }
   }, [activeProjectId, displayName, prompt, CreateProject, updateProject]);
 
-  // UI helpers
+  // ========= HELPERS =========
   const copyId = async (id) => {
     try {
       await navigator.clipboard.writeText(id);
@@ -441,13 +431,60 @@ export default function InhubDashboard({ initialProjectId = null }) {
     }
   };
 
-  // render project card
-  const renderProjectCard = (p) => {
+  // render project card (used for history + sidebar recent list)
+  const renderProjectCard = (p, options = {}) => {
+    const { compact = false } = options;
+    const active = activeProjectId === p.id;
+const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.random()}`;
+
+    if (compact) {
+      return (
+        <div
+          key={reactKey}
+          className={`project-card compact ${active ? "selected" : ""}`}
+          onClick={() => openProject(p)}
+        >
+          <div className="project-compact-main">
+            <div className="row-avatar">{(p.name || "").slice(0, 1)}</div>
+            <div>
+              <div className="project-name">{p.name || "Untitled project"}</div>
+              <div className="muted small">
+                {p.filesCount ?? 0} files • {formatDate(p.CreatedAt)}
+              </div>
+              <div className="muted very-small id-inline">
+                id: <span className="text-neon">{p.id}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="project-compact-actions">
+            <button
+              className="icon-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                openProject(p);
+              }}
+            >
+              Open
+            </button>
+            <button
+              className="icon-btn danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteProject(p.id);
+              }}
+            >
+              <FiTrash2 />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
-        key={p._id}
-
-        className={`project-card ${activeProjectId === p.id ? "selected" : ""}`}
+        key={reactKey}
+        className={`project-card full ${active ? "selected" : ""}`}
         onClick={() => openProject(p)}
         role="button"
         aria-label={`Open ${p.name}`}
@@ -457,16 +494,15 @@ export default function InhubDashboard({ initialProjectId = null }) {
         }}
       >
         <div className="project-card-top">
-          <div className="project-name">{p.name}</div>
+          <div className="project-title">{p.name || "Untitled project"}</div>
           <div className="project-actions">
             <button
               className="icon-small"
               onClick={(ev) => {
                 ev.stopPropagation();
-                copyId(p._id);
+                copyId(p.id || p._id);
               }}
               title="Copy ID"
-              aria-label="Copy project id"
             >
               <FiCopy />
             </button>
@@ -478,7 +514,6 @@ export default function InhubDashboard({ initialProjectId = null }) {
                 openProject(p);
               }}
               title="Open"
-              aria-label="Open project"
             >
               <FiExternalLink />
             </button>
@@ -490,7 +525,6 @@ export default function InhubDashboard({ initialProjectId = null }) {
                 deleteProject(p.id);
               }}
               title="Delete"
-              aria-label="Delete project"
             >
               <FiTrash2 />
             </button>
@@ -499,16 +533,18 @@ export default function InhubDashboard({ initialProjectId = null }) {
 
         <div className="project-meta">
           <div className="meta-left">
-            <div className="owner-badge">{(p.owner || "Y").slice(0, 1).toUpperCase()}</div>
+            <div className="owner-badge">
+              {(p.owner || displayName || "Y").slice(0, 1).toUpperCase()}
+            </div>
             <div>
               <div className="meta-title">Files</div>
-              <div className="meta-value">{p.filesCount}</div>
+              <div className="meta-value">{p.filesCount ?? 0}</div>
             </div>
           </div>
 
           <div className="meta-right">
             <div className="meta-small">Created</div>
-            <div className="meta-small">{new Date(p.CreatedAt).toLocaleDateString()}</div>
+            <div className="meta-small">{formatDate(p.CreatedAt)}</div>
             <div className="meta-small id-cell">{p.id}</div>
           </div>
         </div>
@@ -517,15 +553,29 @@ export default function InhubDashboard({ initialProjectId = null }) {
   };
 
   const renderProjectHistorySection = () => {
+    const filtered = (projects || []).filter((p) => {
+      if (!historySearch.trim()) return true;
+      const q = historySearch.toLowerCase();
+      return (
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.id || "").toLowerCase().includes(q)
+      );
+    });
+
     return (
       <div className="history-wrap">
         <div className="history-header">
-          <h3>Project History</h3>
+          <h3 className="history-title">Project History</h3>
           <div className="history-actions">
+            <input
+              className="history-search"
+              placeholder="Search by name or id..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+            />
             <button
               className="icon-btn"
               onClick={() => {
-                // manual refresh
                 window.location.reload();
               }}
             >
@@ -534,7 +584,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
             <button
               className="icon-btn"
               onClick={() => {
-                alert("Export placeholder");
+                alert("Export coming soon");
               }}
             >
               Export
@@ -542,16 +592,20 @@ export default function InhubDashboard({ initialProjectId = null }) {
           </div>
         </div>
 
-        {projects.length === 0 ? (
-          <div className="empty-history">No projects yet — Create one from the prompt.</div>
+        {filtered.length === 0 ? (
+          <div className="empty-history">
+            No projects found. Create one from the dashboard prompt.
+          </div>
         ) : (
-          <div className="history-grid">{projects.map((p) => renderProjectCard(p))}</div>
+          <div className="history-grid">
+            {filtered.map((p) => renderProjectCard(p))}
+          </div>
         )}
       </div>
     );
   };
 
-  // main renderer
+  // ========= MAIN CONTENT =========
   const renderMainContent = () => {
     switch (activeTab) {
       case "chat":
@@ -560,11 +614,21 @@ export default function InhubDashboard({ initialProjectId = null }) {
             <div className="full-hero" style={{ marginBottom: 16 }}>
               <div>
                 <h1 className="welcome">Chat</h1>
-                <p className="muted">Describe what you want to build for this project.</p>
-                {activeProjectId && <div className="muted small">Active: <span className="text-neon">{activeProjectId}</span></div>}
+                <p className="muted">
+                  Describe what you want to build for this project.
+                </p>
+                {activeProjectId && (
+                  <div className="muted small">
+                    Active: <span className="text-neon">{activeProjectId}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <ChatView openCode={() => setActiveTab("code")} activeProjectId={activeProjectId} initialPrompt={prompt} />
+            <ChatView
+              openCode={() => setActiveTab("code")}
+              activeProjectId={activeProjectId}
+              initialPrompt={prompt}
+            />
           </div>
         );
 
@@ -574,21 +638,37 @@ export default function InhubDashboard({ initialProjectId = null }) {
             <div className="full-hero" style={{ marginBottom: 12 }}>
               <div>
                 <h1 className="welcome">Code</h1>
-                <p className="muted">Generated source files for your current project.</p>
-                {activeProjectId && <div className="muted small">Active: <span className="text-neon">{activeProjectId}</span></div>}
+                <p className="muted">
+                  Generated source files for your current project.
+                </p>
+                {activeProjectId && (
+                  <div className="muted small">
+                    Active: <span className="text-neon">{activeProjectId}</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => saveCurrentProject({ title: prompt })} className="icon-btn" title="Save project">
+                <button
+                  onClick={() => saveCurrentProject({ title: prompt })}
+                  className="icon-btn"
+                  title="Save project"
+                >
                   <FiSave /> Save
                 </button>
-                <button onClick={() => setActiveTab("preview")} className="icon-btn">
+                <button
+                  onClick={() => setActiveTab("preview")}
+                  className="icon-btn"
+                >
                   Open Preview
                 </button>
               </div>
             </div>
 
-            <CodeView projectFiles={projectFiles} activeProjectId={activeProjectId} />
+            <CodeView
+              projectFiles={projectFiles}
+              activeProjectId={activeProjectId}
+            />
           </div>
         );
 
@@ -598,30 +678,43 @@ export default function InhubDashboard({ initialProjectId = null }) {
             <div className="full-hero" style={{ marginBottom: 12 }}>
               <div>
                 <h1 className="welcome">Preview</h1>
-                <p className="muted">Live preview of your generated project.</p>
-                {activeProjectId && <div className="muted small">Active: <span className="text-neon">{activeProjectId}</span></div>}
+                <p className="muted">
+                  Live preview of your generated project.
+                </p>
+                {activeProjectId && (
+                  <div className="muted small">
+                    Active: <span className="text-neon">{activeProjectId}</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="icon-btn" onClick={() => setActiveTab("code")}>
+                <button
+                  className="icon-btn"
+                  onClick={() => setActiveTab("code")}
+                >
                   Edit Code
                 </button>
-                <button className="icon-btn" onClick={() => saveCurrentProject({ title: prompt })}>
+                <button
+                  className="icon-btn"
+                  onClick={() => saveCurrentProject({ title: prompt })}
+                >
                   <FiSave /> Save
                 </button>
               </div>
             </div>
 
-            <PreviewView files={projectFiles} previewUrl={previewUrl} clearPreview={clearPreview} activeProjectId={activeProjectId} />
+            <PreviewView
+              files={projectFiles}
+              previewUrl={previewUrl}
+              clearPreview={clearPreview}
+              activeProjectId={activeProjectId}
+            />
           </div>
         );
 
       case "projects":
-        return (
-          <div className="content-wrap">
-            {renderProjectHistorySection()}
-          </div>
-        );
+        return <div className="content-wrap">{renderProjectHistorySection()}</div>;
 
       default:
         return (
@@ -631,10 +724,13 @@ export default function InhubDashboard({ initialProjectId = null }) {
                 <div style={{ width: "100%", maxWidth: 980 }}>
                   <div className="welcome-outside">
                     <div className="welcome-row">
-                      <div className="user-bubble">{(displayName || "G").slice(0, 1).toUpperCase()}</div>
                       <div className="welcome-texts">
-                        <div className="welcome-gradient">Welcome back — {displayName}!</div>
-                        <div className="welcome-sub">Type a prompt below and hit Create to begin.</div>
+                        <div className="welcome-gradient">
+                          Welcome, {displayName}
+                        </div>
+                        <div className="welcome-sub">
+                          Type a prompt below and hit Create to begin.
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -646,7 +742,9 @@ export default function InhubDashboard({ initialProjectId = null }) {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={(e) => {
-                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleCreate(false);
+                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                            handleCreate(false);
+                          }
                         }}
                         placeholder="Type project prompt here — e.g. 'Marketing landing with hero, features and CTA'"
                         className="prompt-textarea"
@@ -660,13 +758,35 @@ export default function InhubDashboard({ initialProjectId = null }) {
                         </div>
 
                         <div className="under-controls">
-                          <div className="muted small">{projects.length} saved • {activeProjectId ? `active: ${activeProjectId}` : "no active project"}</div>
+                          <div className="muted small">
+                            {projects.length} saved •{" "}
+                            {activeProjectId
+                              ? `active: ${activeProjectId}`
+                              : "no active project"}
+                          </div>
                         </div>
                       </div>
 
                       <div className="prompt-actions" style={{ marginTop: 14 }}>
-                        <button onClick={() => handleCreate(false)} className="btn-Create" disabled={isCreating}><FiPlus /> {isCreating ? "Creating..." : "Create"}</button>
-                        <button className="icon-btn" onClick={() => saveCurrentProject({ title: prompt })}><FiSave /> Save</button>
+                        <button
+                          onClick={() => handleCreate(false)}
+                          className="btn-Create"
+                          disabled={isCreating}
+                        >
+                          <FiPlus />{" "}
+                          {isCreating ? "Creating..." : "Create"}
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            saveCurrentProject({ title: prompt })
+                          }
+                          className="btn-Create"
+                          disabled={isCreating}
+                        >
+                          <FiPlus />{" "}
+                          {isCreating ? "Creating..." : "Save"}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -679,32 +799,19 @@ export default function InhubDashboard({ initialProjectId = null }) {
                   {projects.length === 0 ? (
                     <div className="text-muted">No saved projects yet.</div>
                   ) : (
-                    projects.slice(0, 6).map((p) => (
-                      <div
-      key={p._id}   // ← fixed here
-      className={`project-card ${activeProjectId === p.id ? "selected" : ""}`}
-      onClick={() => openProject(p)}
-    >
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <div className="row-avatar">{(p.name || "").slice(0, 1)}</div>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{p.name}</div>
-                            <div className="muted small">{p.filesCount} files • {new Date(p.CreatedAt).toLocaleDateString()}</div>
-                            <div className="muted very-small id-inline">id: <span className="text-neon">{p.id}</span></div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button className="icon-btn" onClick={() => openProject(p)}>Open</button>
-                          <button className="icon-btn danger" onClick={() => deleteProject(p.id)}><FiTrash2 /></button>
-                        </div>
-                      </div>
-                    ))
+                    projects
+                      .slice(0, 6)
+                      .map((p) => renderProjectCard(p, { compact: true }))
                   )}
                 </div>
 
                 <div style={{ marginTop: 20 }}>
-                  <button className="icon-btn" onClick={() => setActiveTab("projects")}>Open full History</button>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setActiveTab("projects")}
+                  >
+                    Open full History
+                  </button>
                 </div>
               </aside>
             </div>
@@ -713,114 +820,563 @@ export default function InhubDashboard({ initialProjectId = null }) {
     }
   };
 
+  // ========= RENDER ROOT =========
   return (
     <div className="dashboard-root full-viewport">
-      {/* Sidebar */}
       <aside className="leftbar leftbar-wide">
         <div className="brand-top">
           <div className="brand-mark">HJ</div>
           <div className="brand-name">Inhub</div>
         </div>
 
-        <nav className="leftnav leftnav-full" aria-label="Primary navigation">
+        <nav
+          className="leftnav leftnav-full"
+          aria-label="Primary navigation"
+        >
           {navItems.map((item) => (
-            <button key={item.id} className={`nav-btn ${activeTab === item.id ? "active" : ""}`} onClick={() => setActiveTab(item.id)} aria-pressed={activeTab === item.id}>
+            <button
+              key={item.id}
+              className={`nav-btn ${
+                activeTab === item.id ? "active" : ""
+              }`}
+              onClick={() => setActiveTab(item.id)}
+              aria-pressed={activeTab === item.id}
+            >
               <div className="nav-icon">{item.icon}</div>
               <div className="nav-label">{item.label}</div>
             </button>
           ))}
         </nav>
 
-        <div className="left-bottom">
-          <button className="bottom-btn" onClick={() => alert("License — placeholder")}>License</button>
-          <button className="bottom-btn" onClick={() => setActiveTab("settings")}>Settings</button>
+        <div className="sidebar-bottom">
+          <button
+            className="bottom-btn"
+            onClick={() => alert("License — placeholder")}
+          >
+            License
+          </button>
+          <br />
+          <br />
+          <button
+            className="bottom-btn"
+            onClick={() => setActiveTab("settings")}
+          >
+            Settings
+          </button>
         </div>
       </aside>
 
       <main className="main-area">{renderMainContent()}</main>
 
-      {/* Styles (self-contained) */}
+      {/* THEME + LAYOUT STYLES */}
       <style>{`
-        :root { --neon: #00d4b4; --panel: rgba(255,255,255,0.02); --muted: rgba(255,255,255,0.6); --card-from: #071821; --card-to: #04121a; }
-        .full-viewport { min-height: 100vh; height: 100vh; display:flex; }
-        .dashboard-root { width:100%; display:flex; background: linear-gradient(180deg,#06121a,#041016); color:#e6f6f5; font-family: Inter, system-ui, Roboto, "Segoe UI"; }
+/* ==============================
+   GLOBAL LAYOUT + THEME
+   ==============================*/
+.dashboard-root {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(180deg, #0B1526 0%, #0A1624 100%);
+  color: #e5e5e5;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
-        /* LEFT BAR */
-        .leftbar-wide { width:220px; padding:18px 12px; display:flex; flex-direction:column; gap:18px; background: linear-gradient(180deg,#04121a,#031219); border-right: 1px solid rgba(255,255,255,0.02); }
-        .brand-top { display:flex; align-items:center; gap:10px; }
-        .brand-mark { width:48px;height:48px;border-radius:10px; background: linear-gradient(180deg,#022a27,#003936); display:flex;align-items:center;justify-content:center;color:var(--neon);font-weight:800; font-size:16px; }
-        .brand-name { font-weight:800; color:#eaf6f3; font-size:16px; }
+main.main-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 48px;
+  background: transparent;
+}
 
-        .leftnav-full { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
-        .nav-btn { display:flex; align-items:center; gap:10px; background:transparent; border:none; text-align:left; padding:10px 12px; border-radius:10px; color: rgba(255,255,255,0.9); font-weight:700; cursor:pointer; transition: all .12s; }
-        .nav-btn:hover { transform: translateX(6px); background: rgba(255,255,255,0.02); }
-        .nav-btn.active { color: var(--neon); background: linear-gradient(90deg, rgba(0,212,180,0.06), rgba(0,212,180,0.02)); transform: translateX(6px); box-shadow: 0 8px 30px rgba(0,0,0,0.6) inset; }
-        .nav-icon { font-size:18px; color: rgba(255,255,255,0.75); }
-        .nav-label { font-size:14px; }
+/* ==============================
+   SIDEBAR
+   ==============================*/
+.leftbar-wide {
+  width: 260px;
+  background: #0E1A2B;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 
-        .left-bottom { margin-top:auto; display:flex; flex-direction:column; gap:10px; }
-        .bottom-btn { display:flex; gap:10px; align-items:center; padding:10px 12px; border-radius:8px; background: transparent; border:1px solid rgba(255,255,255,0.02); color: rgba(255,255,255,0.8); cursor:pointer; font-weight:700; }
-        .bottom-btn:hover { transform: translateY(-3px); background: rgba(255,255,255,0.02); }
+.brand-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-        /* MAIN */
-        .main-area { flex:1; position:relative; overflow:auto; padding:36px; }
-        .content-wrap { position:relative; z-index:2; }
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #10a37f;
+  font-size: 18px;
+  font-weight: 800;
+}
 
-        .hero { display:flex; gap:28px; align-items:flex-end; justify-content:center; }
-        .hero-center-lower { flex:1; display:flex; justify-content:center; align-items:flex-end; min-height: calc(58vh + 38px); }
-        .hero-right-compact { width:360px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:18px; border-radius:12px; min-height:220px; }
+.brand-name {
+  font-size: 18px;
+  color: #ffffff;
+  font-weight: 700;
+}
 
-        /* welcome outside */
-        .welcome-outside { margin-bottom: 12px; color: #eaf6f3; }
-        .welcome-row { display:flex; gap:14px; align-items:center; margin-bottom:8px; }
-        .user-bubble { width:56px; height:56px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg,#002b2a,#003936); color: #e8fff7; font-weight:900; font-size:18px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); border: 1px solid rgba(0,212,180,0.08); }
-        .welcome-gradient { font-size:22px; font-weight:900; background: linear-gradient(90deg, #fff, #dff7f0, rgba(0,212,180,0.9)); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 3px 18px rgba(0,0,0,0.6); letter-spacing:-0.3px; }
-        .welcome-sub { margin:6px 0 0 0; color: var(--muted); font-size:13px; }
+.leftnav-full {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
-        /* prompt card */
-        .prompt-card-centered.lower { width:100%; max-width:980px; background: linear-gradient(180deg,var(--card-from),var(--card-to)); border: 1px solid var(--panel); border-radius:14px; padding:18px; box-shadow: 0 14px 40px rgba(3,9,14,0.6); transition: transform .18s; transform-origin: center bottom; }
-        .prompt-textarea { width:100%; min-height:120px; resize:vertical; border-radius:10px; padding:12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); color: #eaf6f3; outline:none; font-size:15px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.35); }
-        .prompt-actions { display:flex; gap:12px; margin-top:12px; align-items:center; }
+.nav-btn {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #d1d1d1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
 
-        /* history / cards */
-        .history-wrap { padding:8px 4px; }
-        .history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
-        .history-header h3 { margin:0; font-size:20px; }
-        .history-actions { display:flex; gap:8px; }
-        .history-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+.nav-btn:hover {
+  background: rgba(255,255,255,0.04);
+}
 
-        .project-card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:12px; cursor:pointer; transition: transform .12s, box-shadow .12s; border:1px solid rgba(255,255,255,0.02); }
-        .project-card:hover { transform: translateY(-6px); box-shadow: 0 18px 50px rgba(0,0,0,0.6); }
-        .project-card.selected { outline: 2px solid rgba(0,212,180,0.12); transform: translateY(-2px); }
-        .project-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-        .project-name { font-weight:800; font-size:15px; }
-        .project-actions { display:flex; gap:6px; opacity:0; transition: opacity .12s; }
-        .project-card:hover .project-actions { opacity:1; }
-        .icon-small { background: transparent; border: none; padding:6px; border-radius:8px; color: rgba(255,255,255,0.8); cursor:pointer; display:inline-flex; }
-        .icon-small:hover { background: rgba(255,255,255,0.02); color: var(--neon); }
+.nav-btn.active {
+  background: rgba(16,163,127,0.18);
+  color: #ffffff;
+}
 
-        .project-meta { display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px; }
-        .owner-badge { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg,#02111a,#001419); color:var(--neon); font-weight:800; margin-right:8px; }
-        .meta-left { display:flex; align-items:center; gap:8px; }
-        .meta-right { text-align:right; font-size:12px; color:var(--muted); }
-        .id-cell { margin-top:6px; font-family: monospace; color: rgba(255,255,255,0.7); }
+.nav-icon {
+  font-size: 18px;
+}
 
-        /* recent list */
-        .recent-row { border-bottom: 1px solid rgba(255,255,255,0.02); padding:8px 0; }
+.sidebar-bottom {
+  margin-top: auto;
+}
 
-        .text-neon { color: var(--neon); font-weight:700; }
-        .muted { color: var(--muted); }
-        .very-small { font-size:11px; color: var(--muted); }
+.bottom-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  color: #d3d3d3;
+  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
 
-        .icon-btn { background:transparent; border:1px solid rgba(255,255,255,0.04); padding:8px 10px; border-radius:8px; cursor:pointer; color:#eaf6f3; display:inline-flex; align-items:center; gap:8px; }
-        .btn-Create { padding:10px 16px; border-radius:10px; background: linear-gradient(180deg,#00e6c7,#00c1a1); color:#00201b; font-weight:700; border:none; cursor:pointer; }
+.bottom-btn:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
 
-        @media (max-width: 1100px) {
-          .leftbar-wide { width:72px; padding:14px 8px; }
-          .brand-name { display:none; }
-          .nav-label { display:none; }
-          .history-grid { grid-template-columns: repeat(1, 1fr); }
-        }
+/* ==============================
+   CONTENT WRAPS
+   ==============================*/
+.content-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.full-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.hero {
+  display: flex;
+  gap: 32px;
+}
+
+.hero-center-lower.with-offset {
+  flex: 1;
+}
+
+.hero-right-compact {
+  width: 320px;
+}
+
+/* ==============================
+   HEADER / WELCOME
+   ==============================*/
+.welcome-gradient {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.welcome-sub {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #a1a1a1;
+}
+
+/* ==============================
+   PROMPT CARD
+   ==============================*/
+.prompt-card-centered {
+  max-width: 900px;
+  margin: 0 auto;
+  margin-top: 20px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 28px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+textarea.prompt-textarea {
+  width: 100%;
+  min-height: 240px;
+  background: #040916;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 18px;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+textarea.prompt-textarea:focus {
+  border-color: #10a37f;
+}
+
+.btn-Create {
+  padding: 12px 22px;
+  border-radius: 8px;
+  background: #10a37f;
+  color: white;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s ease, transform .1s ease;
+}
+
+.btn-Create:hover {
+  background: #0e8c6d;
+}
+
+.under-prompt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.prompt-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prompt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #10a37f;
+}
+
+.prompt-label {
+  font-size: 13px;
+  color: #bfbfbf;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ==============================
+   PROJECT CARDS (sidebar + history)
+   ==============================*/
+.project-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .15s ease;
+}
+
+.project-card.compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.project-card.full {
+  padding: 18px 20px;
+}
+
+.project-card:hover {
+  transform: translateY(-2px);
+  border-color: #10a37f;
+  box-shadow: 0px 8px 20px rgba(0,0,0,0.45);
+}
+
+.project-card.selected {
+  border-color: #10a37f;
+  background: rgba(16,163,127,0.14);
+}
+
+.project-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.project-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.project-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.project-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #dcdcdc;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.icon-small:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: #10a37f;
+}
+
+.project-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.meta-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.owner-badge {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #dcdcdc;
+  font-weight: 700;
+}
+
+.meta-title {
+  font-size: 13px;
+  color: #aaaaaa;
+}
+
+.meta-value {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.meta-right {
+  text-align: right;
+}
+
+.meta-small {
+  font-size: 12px;
+  color: #a8a8a8;
+}
+
+.id-cell {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #10a37f;
+}
+
+.row-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.project-compact-main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.project-compact-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* generic buttons */
+.icon-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #e1e1e1;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: #10a37f;
+}
+
+.icon-btn.danger {
+  border-color: #803b3b;
+}
+
+.text-neon {
+  color: #10a37f;
+}
+
+/* ==============================
+   PROJECT HISTORY
+   ==============================*/
+.history-wrap {
+  margin-top: 6px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.history-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-search {
+  min-width: 220px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  color: #f2f2f2;
+  font-size: 13px;
+  outline: none;
+}
+
+.history-search::placeholder {
+  color: #7f8084;
+}
+
+.history-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-history {
+  margin-top: 30px;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,0.1);
+  background: rgba(4,9,22,0.9);
+  color: #a3a3a3;
+  text-align: center;
+}
+
+/* ==============================
+   TEXT UTILITIES
+   ==============================*/
+.muted {
+  color: #a0a0a0;
+}
+
+.muted.small {
+  font-size: 12px;
+}
+
+.muted.very-small {
+  font-size: 11px;
+}
+
+.text-muted {
+  color: #a0a0a0;
+}
+
+/* ==============================
+   RESPONSIVE
+   ==============================*/
+@media (max-width: 1000px) {
+  .leftbar-wide {
+    width: 80px;
+  }
+  .brand-name,
+  .nav-label {
+    display: none;
+  }
+
+  main.main-area {
+    padding: 24px 16px;
+  }
+
+  .hero {
+    flex-direction: column;
+  }
+
+  .hero-right-compact {
+    width: 100%;
+  }
+}
       `}</style>
     </div>
   );

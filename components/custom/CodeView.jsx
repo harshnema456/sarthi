@@ -1,4 +1,3 @@
-// src/components/custom/CodeView.jsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,7 +8,7 @@ import {
   SandpackFileExplorer,
 } from "@codesandbox/sandpack-react";
 import Lookup from "@/data/Lookup";
-import { Loader2Icon, Github } from "lucide-react";
+import { Loader2Icon, Github, Link as LinkIcon, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
 
@@ -19,12 +18,66 @@ function CodeView({ projectFiles }) {
   const [files, setFiles] = useState(Lookup.DEFAULT_FILE ?? {});
   const [loading, setLoading] = useState(false);
 
+  // repo info state
+  const [repoName, setRepoName] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repoBranch, setRepoBranch] = useState("main");
+
   // whenever dashboard updates projectFiles, update Sandpack
   useEffect(() => {
     if (projectFiles && Object.keys(projectFiles).length) {
       setFiles(projectFiles);
     }
   }, [projectFiles]);
+
+  // load existing repo info for this project (adjust endpoint if needed)
+  useEffect(() => {
+    if (!id) return;
+
+    const loadRepoInfo = async () => {
+      try {
+        const res = await fetch(`/api/projects/${id}`); // <-- adjust this endpoint to your actual project metadata endpoint
+        if (!res.ok) return;
+        const data = await res.json();
+        // expect data.githubRepoName and/or data.githubRepoUrl and/or data.githubBranch
+        if (data.githubRepoUrl) {
+          setRepoUrl(data.githubRepoUrl);
+          // extract repo name (last path segment) as fallback
+          try {
+            const u = new URL(data.githubRepoUrl);
+            const name = u.pathname.split("/").filter(Boolean).pop();
+            if (name) setRepoName(name);
+          } catch {
+            // if invalid URL, fall back to provided name
+            if (data.githubRepoName) setRepoName(data.githubRepoName);
+          }
+        } else if (data.githubRepoName) {
+          setRepoName(data.githubRepoName);
+        }
+
+        if (data.githubBranch) setRepoBranch(data.githubBranch);
+      } catch (err) {
+        // silent fail — repo info is optional
+        // console.debug("loadRepoInfo error", err);
+      }
+    };
+
+    loadRepoInfo();
+  }, [id]);
+
+  const saveRepoMetadata = async (meta = {}) => {
+    if (!id) return;
+    try {
+      await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(meta),
+      });
+    } catch (err) {
+      // non-fatal — best-effort
+      // console.debug("saveRepoMetadata error", err);
+    }
+  };
 
   const publishToGitHub = async () => {
     try {
@@ -33,13 +86,13 @@ function CodeView({ projectFiles }) {
         return;
       }
 
-      const repoName = `ai-workspace-${id || Date.now()}`;
+      const repoNameToUse = repoName || `ai-workspace-${id || Date.now()}`;
       setLoading(true);
 
       const res = await fetch("/api/github-publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoName, files }),
+        body: JSON.stringify({ repoName: repoNameToUse, files, branch: repoBranch }),
       });
 
       const raw = await res.text();
@@ -56,6 +109,31 @@ function CodeView({ projectFiles }) {
         return;
       }
 
+      // Success: update local repo info (use repoUrl if provided; derive repoName otherwise)
+      if (data.repoUrl) {
+        setRepoUrl(data.repoUrl);
+        try {
+          const u = new URL(data.repoUrl);
+          const name = u.pathname.split("/").filter(Boolean).pop();
+          if (name) setRepoName(name);
+        } catch {
+          // fallback
+          if (data.repoName) setRepoName(data.repoName);
+        }
+      } else if (data.repoName) {
+        setRepoName(data.repoName);
+      } else {
+        // fallback to what we attempted to publish
+        setRepoName(repoNameToUse);
+      }
+
+      // persist metadata to project record (best-effort)
+      saveRepoMetadata({
+        githubRepoName: repoNameToUse,
+        githubRepoUrl: data.repoUrl || undefined,
+        githubBranch: repoBranch,
+      });
+
       toast("Published successfully!");
       if (data.repoUrl) window.open(data.repoUrl, "_blank");
     } catch (error) {
@@ -66,16 +144,89 @@ function CodeView({ projectFiles }) {
     }
   };
 
+  const openRepo = () => {
+    if (!repoUrl) return toast("No repo URL available");
+    window.open(repoUrl, "_blank");
+  };
+
+  const copyRepoUrl = async () => {
+    if (!repoUrl) return toast("No repo URL to copy");
+    try {
+      await navigator.clipboard.writeText(repoUrl);
+      toast("Repository URL copied to clipboard");
+    } catch (err) {
+      toast("Unable to copy URL");
+    }
+  };
+
+  const changeBranch = async () => {
+    const newBranch = window.prompt("Enter branch name:", repoBranch || "main");
+    if (!newBranch) return;
+    setRepoBranch(newBranch);
+    // best-effort persist
+    saveRepoMetadata({ githubBranch: newBranch });
+    toast(`Branch set to ${newBranch}`);
+  };
+
   return (
     <div className="relative">
       {/* HEADER */}
       <div className="codeview-header w-full flex items-center justify-between">
         <div className="font-semibold text-white/70">Code Editor</div>
 
-        {/* GitHub publish */}
-        <button onClick={publishToGitHub} className="codeview-publish">
-          <Github className="w-4 h-4" /> Publish to GitHub
-        </button>
+        <div className="flex items-center gap-3">
+          {/* repo display (left side of publish button) */}
+          <div className="repo-info text-sm text-white/70 flex items-center gap-2">
+            {repoName ? (
+              <>
+                {repoUrl ? (
+                  <a
+                    href={repoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="repo-link underline-offset-2 hover:underline"
+                  >
+                    {repoName}
+                  </a>
+                ) : (
+                  <span>{repoName}</span>
+                )}
+
+                {/* quick action buttons for repo */}
+                <button
+                  onClick={openRepo}
+                  title="Open repository"
+                  className="repo-action ml-2 px-2 py-1 rounded"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={copyRepoUrl}
+                  title="Copy repository URL"
+                  className="repo-action px-2 py-1 rounded"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={changeBranch}
+                  title="Change branch"
+                  className="repo-action px-2 py-1 rounded"
+                >
+                  <span className="text-xs">{repoBranch}</span>
+                </button>
+              </>
+            ) : (
+              <span className="text-white/40">No repo</span>
+            )}
+          </div>
+
+          {/* GitHub publish */}
+          <button onClick={publishToGitHub} className="codeview-publish">
+            <Github className="w-4 h-4" /> Publish to GitHub
+          </button>
+        </div>
       </div>
 
       <SandpackProvider
@@ -128,6 +279,23 @@ function CodeView({ projectFiles }) {
           background: rgba(0,0,0,0.45);
           z-index: 50;
         }
+        .repo-info a {
+          color: rgba(255,255,255,0.85);
+          text-decoration: none;
+        }
+        .repo-info a:hover {
+          text-decoration: underline;
+        }
+        .repo-action {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.04);
+          margin-left: 6px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px;
+        }
+        .repo-action:hover { opacity: .9 }
       `}</style>
     </div>
   );

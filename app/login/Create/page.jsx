@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UserDetailContext } from "@/context/UserDetailContext";  
 import { toast } from "sonner";
-import Image from "next/image"; 
+import Image from "next/image";
 
 import {
   Grid,
@@ -24,8 +24,7 @@ export default function Create() {
   const router = useRouter();
   const CreateWorkspace = useMutation(api.workspace.Create);
   const { setMessages } = useContext(MessagesContext);
-
-  const { userDetail } = useContext(UserDetailContext);  // ⭐ added
+  const { userDetail } = useContext(UserDetailContext);
 
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,92 +36,140 @@ export default function Create() {
     "Build a landing page for a fitness startup",
   ];
 
+  const workspaceId =
+    typeof window !== "undefined" ? localStorage.getItem("workspaceId") : null;
+
+  /* ============ Sidebar Navigation ============ */
+  const goToDashboard = () => {
+    if (!workspaceId) return toast.error("Workspace not found");
+    router.push(`/login/Create/InhubDashboard/${workspaceId}?view=dashboard`);
+  };
+
+  const goToProjects = () => {
+    if (!workspaceId) return toast.error("Workspace not found");
+    router.push(`/login/Create/InhubDashboard/${workspaceId}?view=projects`);
+  };
+
+  /* ============ SIGNOUT LOGIC ============ */
+  const handleSignout = () => {
+    try {
+      // 🔥 Clear all stored session data
+      localStorage.clear();
+
+      // 🔥 Redirect user to login page
+      router.push("/login");
+
+      toast.success("Signed out successfully");
+    } catch (err) {
+      console.error("Signout failed:", err);
+      toast.error("Error while signing out");
+    }
+  };
+
   const handleSelectSuggestion = (example) => setPrompt(example);
 
+  /* ============ Create Button Logic ============ */
   const handleCreate = async () => {
-  if (!prompt.trim()) return toast.error("Please enter project prompt");
+    if (!prompt.trim()) return toast.error("Please enter project prompt");
 
-  setLoading(true);
+    setLoading(true);
 
-  // Use workspaceId Created during Google login
-  const id = localStorage.getItem("workspaceId");
-  if (!id) {
-    toast.error("Workspace not found");
+    if (!workspaceId) {
+      toast.error("Workspace not found");
+      setLoading(false);
+      return;
+    }
+
+    // Save prompt for Dashboard Chat
+    localStorage.setItem("pendingPrompt", prompt);
+
+    router.push(`/login/Create/InhubDashboard/${workspaceId}?view=dashboard`);
+
     setLoading(false);
-    return;
-  }
-
-  // Send the prompt to Dashboard chat
-  setMessages([
-    { role: "user", content: prompt, timestamp: new Date().toISOString() },
-  ]);
-
-  // Move to Dashboard
-  router.push(`/login/Create/InhubDashboard/${id}`);
-};
-
+  };
 
   return (
-    <div className="h-screen w-screen flex bg-[#050c16] text-white">
+    <div className="h-screen w-screen flex bg-[#07111f] text-white">
+
       {/* SIDEBAR */}
-      <aside className="w-[240px] bg-[#040a13] border-r border-white/10 flex flex-col px-9 py-9">
-       <div className="flex items-center justify-center mb-10">
-  <Image
-    src="/logo.png"
-    alt="Logo"
-    width={80}
-    height={80}
-    className="rounded-xl shadow-[0_0_8px_rgba(0,255,219,0.35)] object-contain"
-    priority
-  />
-</div>
+      <aside className="w-[240px] bg-[#0E1A2B] border-r border-white/10 flex flex-col px-9 py-9">
+        
+        {/* Logo */}
+        <div className="flex items-center justify-center mb-10">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={80}
+            height={80}
+            className="rounded-xl shadow-[0_0_8px_rgba(0,255,219,0.35)] object-contain"
+            priority
+          />
+        </div>
 
-
+        {/* Navigation */}
         <nav className="flex flex-col gap-6 text-[15px]">
-          <button className="flex items-center gap-3 text-white/70 hover:text-white">
+          <button
+            onClick={goToDashboard}
+            className="flex items-center gap-3 text-white/70 hover:text-white transition"
+          >
             <Grid size={18} /> Dashboard
           </button>
-          <button className="flex items-center gap-3 text-white/70 hover:text-white">
+
+          <button
+            onClick={goToProjects}
+            className="flex items-center gap-3 text-white/70 hover:text-white transition"
+          >
             <Folder size={18} /> Projects
           </button>
-          <button className="flex items-center gap-3 text-white/70 hover:text-white">
-            < GrabIcon size={18} /> Help Center
+
+          <button className="flex items-center gap-3 text-white/70 hover:text-white transition">
+            <GrabIcon size={18} /> Help Center
           </button>
         </nav>
 
+        {/* Bottom Actions */}
         <div className="mt-auto flex flex-col gap-4 text-[14px] text-white/70">
           <button className="flex items-center gap-3 hover:text-white">
             <BadgeCheck size={16} /> License
           </button>
+
           <button className="flex items-center gap-3 hover:text-white">
             <Settings size={16} /> Settings
           </button>
-          <button className="flex items-center gap-3 hover:text-red-400">
+
+          {/* 🔥 SIGNOUT BUTTON UPDATED */}
+          <button
+            onClick={handleSignout}
+            className="flex items-center gap-3 hover:text-red-400 transition"
+          >
             <LogOut size={16} /> Signout
           </button>
         </div>
+
       </aside>
 
       {/* MAIN */}
       <main className="flex-1 p-14">
-        {/* ⭐ Welcome text using userDetail */}
+
         <h1 className="text-3xl font-semibold mb-12">
           Welcome, {userDetail?.name || "guest"}
         </h1>
 
-        {/* Expanded Dashboard-style prompt card */}
-        <div className="mx-auto w-[1050px] bg-[#07121f] border border-[#14304a] shadow-xl rounded-2xl p-10">
-          <p className="text-white/60 mb-7">Type a prompt below and hit Create to begin.</p>
+        {/* Dashboard Prompt Card */}
+        <div className="mx-auto w-[1050px] bg-[#0B1526] border border-[#14304a] shadow-xl rounded-2xl p-10">
+
+          <p className="text-white/60 mb-7">
+            Type a prompt below and hit Create to begin.
+          </p>
 
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Type project prompt here — e.g. ‘Marketing landing with hero, features and CTA’"
-            className="w-full h-[220px] p-6 bg-[#0c1c2c] rounded-xl border border-[#132c43] outline-none resize-none text-[16px]
+            className="w-full h-[220px] p-6 bg-[#0a1624] rounded-xl border border-[#1a324b] outline-none resize-none text-[16px]
             focus:border-[#12d7be] focus:shadow-[0_0_18px_#12d7be50] transition"
           />
 
-          {/* Suggestions */}
           <div className="flex flex-wrap gap-3 mt-6">
             {suggestions.map((s, i) => (
               <button
@@ -136,12 +183,11 @@ export default function Create() {
             ))}
           </div>
 
-          {/* Buttons */}
           <div className="flex items-center gap-3 mt-8">
             <button
               onClick={handleCreate}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-[#12d7be] hover:bg-[#0fbda6] text-black font-semibold rounded-lg disabled:opacity-40"
+              className="flex items-center gap-2 px-6 py-2 bg-[#12d7be] hover:bg-[#0fbda6] text-black font-semibold rounded-lg disabled:opacity-40 transition"
             >
               <Plus size={18} /> Create
             </button>
@@ -155,6 +201,7 @@ export default function Create() {
             </span>
           </div>
         </div>
+
       </main>
     </div>
   );
