@@ -49,7 +49,7 @@ export default function ChatView(props) {
       const res = await convex.query(api.workspace.GetWorkspace, {
         workspaceId: id,
       });
-      const msgs = res && res.messages ? res.messages : [];
+      const msgs = res && Array.isArray(res.messages) ? res.messages : [];
       setMessages(msgs);
       setTimeout(() => inputRef.current && inputRef.current.focus(), 200);
     } catch (err) {
@@ -74,11 +74,14 @@ export default function ChatView(props) {
           try {
             const len = prompt.length || 0;
             inputRef.current.selectionStart = inputRef.current.selectionEnd = len;
-          } catch (err) {}
+          } catch (err) {
+            // ignore selection errors in some browsers
+          }
         }
       }, 80);
 
       if (autoSend) {
+        // small delay so UI settles
         setTimeout(() => {
           const evt = new CustomEvent("CHAT_AUTO_SEND", { detail: { text: prompt, projectId } });
           window.dispatchEvent(evt);
@@ -114,16 +117,39 @@ export default function ChatView(props) {
   useEffect(() => {
     if (!messages || messages.length === 0) return;
     const last = messages[messages.length - 1];
-    if (last.role === "user") {
+    if (last && last.role === "user") {
+      // trigger AI call on new user message
       callAi();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  const safeExtractResultText = (data) => {
+    // common shapes:
+    // { result: "..." }
+    // { response: { text: "..." } }
+    // { response: { candidates: [ { text: "..." }, ... ] } }
+    if (!data) return null;
+    if (typeof data.result === "string" && data.result.trim()) return data.result;
+    if (data.response) {
+      if (typeof data.response.text === "string" && data.response.text.trim()) return data.response.text;
+      if (Array.isArray(data.response.candidates) && data.response.candidates.length) {
+        // try to join candidate texts
+        const joined = data.response.candidates
+          .map((c) => (typeof c.text === "string" ? c.text : typeof c.content === "string" ? c.content : null))
+          .filter(Boolean)
+          .join("\n\n");
+        if (joined) return joined;
+      }
+    }
+    return null;
+  };
+
   const callAi = async () => {
     if (!messages || messages.length === 0) return;
     setLoading(true);
 
+    // include system/chat prompt context
     const PROMPT = JSON.stringify(messages) + " " + Prompt.CHAT_PROMPT;
     try {
       const response = await fetch("/api/ai-chat", {
@@ -136,6 +162,7 @@ export default function ChatView(props) {
         const t = await response.text().catch(() => "");
         console.error("ai-chat failed", response.status, t);
         toast.error("AI response failed. Try again.");
+        setLoading(false);
         return;
       }
 
@@ -144,45 +171,62 @@ export default function ChatView(props) {
         throw new Error("AI JSON parse failed");
       });
 
-      if (!data || !data.result) {
-        console.error("AI returned no result", data);
+      // try robust extraction
+      const textResult = safeExtractResultText(data) || (typeof data === "string" ? data : null);
+
+      if (!textResult) {
+        console.error("AI returned no result shape I understand:", data);
         toast.error("AI returned empty response");
+        setLoading(false);
         return;
       }
 
       const aiMsg = {
         role: "ai",
-        content: data.result,
+        content: textResult,
         timestamp: new Date().toISOString(),
       };
 
       const safeMessages = Array.isArray(messages) ? messages : [];
       const newMessages = [...safeMessages, aiMsg];
 
+      // optimistic UI update
       setMessages(newMessages);
 
-      await UpdateMessages({
-        messages: newMessages,
-        workspaceId: id,
-      });
-
-      // token accounting (simple word count)
-      const currentToken = Number(userDetail && typeof userDetail.token === "number" ? userDetail.token : 0);
-      const usedTokens = Number(countToken(JSON.stringify(aiMsg)));
-      const newToken = currentToken - usedTokens;
-
-      setUserDetail((prev) => ({
-        ...(prev || {}),
-        token: newToken,
-      }));
-
-      if (userDetail && userDetail._id) {
-        await UpdateToken({ token: newToken, userId: userDetail._id });
+      // persist messages (fire-and-forget but log failures)
+      try {
+        await UpdateMessages({
+          messages: newMessages,
+          workspaceId: id,
+        });
+      } catch (err) {
+        console.error("UpdateMessages failed:", err);
+        // don't block UX — it's persisted best-effort
       }
 
-      // generate code from response
+      // token accounting (simple word count)
       try {
-        const codePrompt = aiMsg.content || data.result;
+        const currentToken = Number(userDetail && typeof userDetail.token === "number" ? userDetail.token : 0);
+        const usedTokens = Number(countToken(JSON.stringify(aiMsg)));
+        const newToken = currentToken - usedTokens;
+
+        setUserDetail((prev) => ({
+          ...(prev || {}),
+          token: newToken,
+        }));
+
+        if (userDetail && userDetail._id) {
+          UpdateToken({ token: newToken, userId: userDetail._id }).catch((e) => {
+            console.error("UpdateToken failed", e);
+          });
+        }
+      } catch (err) {
+        console.warn("Token accounting failed", err);
+      }
+
+      // generate code from response (best-effort)
+      try {
+        const codePrompt = aiMsg.content || textResult;
         const codeRes = await fetch("/api/gen-ai-code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -213,12 +257,12 @@ export default function ChatView(props) {
             if (typeof openCode === "function") {
               openCode();
             }
+          } else {
+            // code endpoint returned no files
+            // console.info("gen-ai-code returned no files", codeData);
           }
         } else {
-          const errText = await codeRes.text().catch(() => "");
-          console.error("gen-ai-code failed", codeRes.status, errText);
-          toast.error(`Code generation failed (${codeRes.status}). Check console for details.`);
-          return;
+          console.error("gen-ai-code failed", codeRes.status);
         }
       } catch (err) {
         console.error("Code generation from chat failed", err);
@@ -247,17 +291,18 @@ export default function ChatView(props) {
       timestamp: new Date().toISOString(),
     };
 
+    // append and persist
     setMessages((prev) => {
       const safePrev = Array.isArray(prev) ? prev : [];
-      return [...safePrev, userMsg];
-    });
-
-    const safeMessages = Array.isArray(messages) ? messages : [];
-    UpdateMessages({
-      messages: [...safeMessages, userMsg],
-      workspaceId: id,
-    }).catch((e) => {
-      console.error("persist user msg failed", e);
+      const arr = [...safePrev, userMsg];
+      // persist in background
+      UpdateMessages({
+        messages: arr,
+        workspaceId: id,
+      }).catch((e) => {
+        console.error("persist user msg failed", e);
+      });
+      return arr;
     });
 
     setUserInput("");
@@ -301,14 +346,17 @@ export default function ChatView(props) {
     }
   };
 
+  // more stable message key: prefer timestamp, fall back to index
   const renderMessage = (m, i) => {
     const isUser = m.role === "user";
     const isAi = m.role === "ai" || m.role === "assistant" || m.role === "system";
 
     const avatarSrc = userDetail && userDetail.picture ? userDetail.picture : "/avatar-placeholder.png";
 
+    const key = (m && (m.timestamp || m.id)) ? `${m.timestamp || m.id}-${i}` :`msg-${i}`;
+
     return (
-      <div key={i} className={`w-full flex mb-5 ${isUser ? "justify-end" : "justify-start"}`}>
+      <div key={key} className={`w-full flex mb-5 ${isUser ? "justify-end" : "justify-start"}`}>
         {!isUser && (
           <div className="mr-4 shrink-0">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-800">
@@ -318,7 +366,7 @@ export default function ChatView(props) {
         )}
 
         <div className="max-w-[72%]">
-          <div className={`rounded-xl p-4 relative ${isUser ? "bg-[#0f1318] text-slate-100 border border-slate-800" : "bg-[#3c6a8b] text-white"}`} style={isUser ? {} : { boxShadow: "0 6px 18px rgba(34,67,95,0.45)" }}>
+          <div className={`rounded-xl p-4 relative ${isUser ? "bg-[#0f1318] text-slate-100 border border-slate-800" : "bg-[#3c6a8b] text-white"}} style={isUser ? {} : { boxShadow: "0 6px 18px rgba(34,67,95,0.45)" }`}>
             <div className="flex items-start justify-between">
               <div className="text-xs text-slate-200">
                 <span className="font-medium">{isUser ? "You" : "AI"}</span>
