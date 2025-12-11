@@ -12,6 +12,32 @@ import { Loader2Icon, Github, Link as LinkIcon, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
 
+/**
+ * CodeView (updated)
+ *
+ * - Robust changeBranch: prompts for repo and branch if missing; posts full payload to /api/github-rename.
+ * - Prompts user for meaningful repo name if missing before publishing.
+ * - Saves metadata after user changes.
+ */
+
+// sanitize branch/repo names
+function slugify(input) {
+  if (!input) return "";
+  return String(input)
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+// small delay helper
+function wait(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
 function CodeView({ projectFiles }) {
   const { id } = useParams();
 
@@ -23,62 +49,121 @@ function CodeView({ projectFiles }) {
   const [repoUrl, setRepoUrl] = useState("");
   const [repoBranch, setRepoBranch] = useState("main");
 
-  // whenever dashboard updates projectFiles, update Sandpack
   useEffect(() => {
     if (projectFiles && Object.keys(projectFiles).length) {
       setFiles(projectFiles);
     }
   }, [projectFiles]);
 
-  // load existing repo info for this project (adjust endpoint if needed)
   useEffect(() => {
     if (!id) return;
-
     const loadRepoInfo = async () => {
       try {
-        const res = await fetch(`/api/projects/${id}`); // <-- adjust this endpoint to your actual project metadata endpoint
-        if (!res.ok) return;
-        const data = await res.json();
-        // expect data.githubRepoName and/or data.githubRepoUrl and/or data.githubBranch
-        if (data.githubRepoUrl) {
-          setRepoUrl(data.githubRepoUrl);
-          // extract repo name (last path segment) as fallback
-          try {
-            const u = new URL(data.githubRepoUrl);
-            const name = u.pathname.split("/").filter(Boolean).pop();
-            if (name) setRepoName(name);
-          } catch {
-            // if invalid URL, fall back to provided name
-            if (data.githubRepoName) setRepoName(data.githubRepoName);
-          }
-        } else if (data.githubRepoName) {
-          setRepoName(data.githubRepoName);
+        const res = await fetch(`/api/projects/${id}`);
+        if (!res.ok) {
+          toast("Failed to load project metadata");
+          return;
         }
-
-        if (data.githubBranch) setRepoBranch(data.githubBranch);
+        const data = await res.json();
+        setRepoUrl(data.githubRepoUrl || "");
+        setRepoName(data.githubRepoName || "");
+        setRepoBranch(data.githubBranch || "main");
       } catch (err) {
-        // silent fail — repo info is optional
-        // console.debug("loadRepoInfo error", err);
+        console.error("loadRepoInfo error", err);
+        toast("Unexpected error loading repo info");
       }
     };
-
     loadRepoInfo();
   }, [id]);
 
   const saveRepoMetadata = async (meta = {}) => {
     if (!id) return;
     try {
-      await fetch(`/api/projects/${id}`, {
+      await fetch(`http://api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(meta),
       });
     } catch (err) {
-      // non-fatal — best-effort
-      // console.debug("saveRepoMetadata error", err);
+      console.error("saveRepoMetadata error", err);
     }
   };
 
+  const sanitizeRepoName = (input) => {
+    if (!input || typeof input !== "string") return "";
+    let s = input.trim().toLowerCase();
+    s = s.replace(/[_\s]+/g, "-");
+    s = s.replace(/[^a-z0-9-]/g, "");
+    s = s.replace(/-+/g, "-");
+    s = s.replace(/^-+|-+$/g, "");
+    if (s.length > 60) s = s.slice(0, 60);
+    return s || "";
+  };
+
+  const promptEditRepoName = async () => {
+    const current = repoName || "";
+    const userInput = window.prompt(
+      "Enter repository name (letters, numbers, hyphen). Example: my-app, user-repo",
+      current
+    );
+    if (!userInput) return;
+    const sanitized = sanitizeRepoName(userInput);
+    if (!sanitized) {
+      toast("Invalid repository name after sanitization");
+      return;
+    }
+    setRepoName(sanitized);
+    await saveRepoMetadata({ githubRepoName: sanitized });
+    toast(`Repository name set to ${sanitized}`);
+  };
+const changeBranch = async () => {
+  const newBranch = window.prompt("Enter new branch name:", repoBranch || "main");
+  if (!newBranch) return;
+
+  let repoNameToUse = repoName;
+  if (!repoNameToUse) {
+    toast("Set repository name first");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const res = await fetch("/api/github-branch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        repoName: repoNameToUse, // "owner/repo" OR "repo" (GITHUB_OWNER used)
+        branch: newBranch,
+        baseBranch: "main", // optional; handler will fallback sensibly
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      toast(data?.error || "Failed to create or switch branch");
+      return;
+    }
+
+    // success
+    setRepoBranch(newBranch);
+    saveRepoMetadata({ githubBranch: newBranch });
+    toast(`Switched to branch: ${newBranch}`);
+  } catch (err) {
+    console.error("changeBranch error", err);
+    toast("Unexpected error switching branch");
+  } finally {
+    setLoading(false);
+  }
+};
+
+    
+
+  /**
+   * publishToGitHub
+   * - Ensure meaningful repo name if auto-generated or missing.
+   * - Ensure branch exists if repo exists (via /api/github-branch).
+   * - Call /api/github-publish with branch.
+   */
   const publishToGitHub = async () => {
     try {
       if (!Object.keys(files).length) {
@@ -86,8 +171,61 @@ function CodeView({ projectFiles }) {
         return;
       }
 
-      const repoNameToUse = repoName || `ai-workspace-${id || Date.now()}`;
+      let repoNameToUse = repoName || "";
+
+      const isAutoGenerated = (name) => {
+        if (!name) return true;
+        return /^ai-workspace(-|_)/i.test(name) || /^ai-workspace/.test(name);
+      };
+
+      if (!repoNameToUse || isAutoGenerated(repoNameToUse)) {
+        const userInput = window.prompt(
+          "Enter a repository name for this project (this will be used on GitHub). Example: my-cool-app",
+          repoNameToUse || ""
+        );
+        if (!userInput) {
+          toast("Publish cancelled: repository name required");
+          return;
+        }
+        const sanitized = sanitizeRepoName(userInput);
+        if (!sanitized) {
+          toast("Invalid repository name after sanitization");
+          return;
+        }
+        repoNameToUse = sanitized;
+        setRepoName(sanitized);
+        await saveRepoMetadata({ githubRepoName: sanitized });
+      }
+
       setLoading(true);
+
+      // If we already have a repo on the UI (repoUrl or repoName present),
+      // ensure branch exists remotely before publishing.
+      if (repoUrl || repoName) {
+        try {
+          const ensureRes = await fetch("/api/github-branch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              repoName: repoNameToUse,
+              branch: repoBranch,
+              baseBranch: "main",
+            }),
+          });
+
+          if (!ensureRes.ok && ensureRes.status !== 409) {
+            const errData = await ensureRes.json().catch(() => null);
+            toast(errData?.error || "Failed to ensure branch exists");
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("ensure branch error", err);
+          toast("Failed to ensure branch exists");
+          setLoading(false);
+          return;
+        }
+      }
 
       const res = await fetch("/api/github-publish", {
         method: "POST",
@@ -95,41 +233,17 @@ function CodeView({ projectFiles }) {
         body: JSON.stringify({ repoName: repoNameToUse, files, branch: repoBranch }),
       });
 
-      const raw = await res.text();
-      let data = null;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        toast("GitHub publish failed");
-        return;
-      }
-
-      if (!data.success) {
+      const data = await res.json().catch(() => null);
+      if (!data || !data.success) {
         toast(data?.error || "GitHub publish failed");
         return;
       }
 
-      // Success: update local repo info (use repoUrl if provided; derive repoName otherwise)
-      if (data.repoUrl) {
-        setRepoUrl(data.repoUrl);
-        try {
-          const u = new URL(data.repoUrl);
-          const name = u.pathname.split("/").filter(Boolean).pop();
-          if (name) setRepoName(name);
-        } catch {
-          // fallback
-          if (data.repoName) setRepoName(data.repoName);
-        }
-      } else if (data.repoName) {
-        setRepoName(data.repoName);
-      } else {
-        // fallback to what we attempted to publish
-        setRepoName(repoNameToUse);
-      }
+      setRepoUrl(data.repoUrl || `https://github.com/${data.repoName || repoNameToUse}`);
+      setRepoName(data.repoName || repoNameToUse);
 
-      // persist metadata to project record (best-effort)
-      saveRepoMetadata({
-        githubRepoName: repoNameToUse,
+      await saveRepoMetadata({
+        githubRepoName: data.repoName || repoNameToUse,
         githubRepoUrl: data.repoUrl || undefined,
         githubBranch: repoBranch,
       });
@@ -159,15 +273,6 @@ function CodeView({ projectFiles }) {
     }
   };
 
-  const changeBranch = async () => {
-    const newBranch = window.prompt("Enter branch name:", repoBranch || "main");
-    if (!newBranch) return;
-    setRepoBranch(newBranch);
-    // best-effort persist
-    saveRepoMetadata({ githubBranch: newBranch });
-    toast(`Branch set to ${newBranch}`);
-  };
-
   return (
     <div className="relative">
       {/* HEADER */}
@@ -175,7 +280,7 @@ function CodeView({ projectFiles }) {
         <div className="font-semibold text-white/70">Code Editor</div>
 
         <div className="flex items-center gap-3">
-          {/* repo display (left side of publish button) */}
+          {/* repo display */}
           <div className="repo-info text-sm text-white/70 flex items-center gap-2">
             {repoName ? (
               <>
@@ -192,7 +297,6 @@ function CodeView({ projectFiles }) {
                   <span>{repoName}</span>
                 )}
 
-                {/* quick action buttons for repo */}
                 <button
                   onClick={openRepo}
                   title="Open repository"
@@ -210,6 +314,14 @@ function CodeView({ projectFiles }) {
                 </button>
 
                 <button
+                  onClick={promptEditRepoName}
+                  title="Edit repository name"
+                  className="repo-action px-2 py-1 rounded"
+                >
+                  <span className="text-xs">Rename</span>
+                </button>
+
+                <button
                   onClick={changeBranch}
                   title="Change branch"
                   className="repo-action px-2 py-1 rounded"
@@ -218,7 +330,31 @@ function CodeView({ projectFiles }) {
                 </button>
               </>
             ) : (
-              <span className="text-white/40">No repo</span>
+              <>
+                <span className="text-white/40">No repo</span>
+
+                <button
+                  onClick={() => {
+                    const newBranch = window.prompt("Enter branch name:", repoBranch || "main");
+                    if (!newBranch) return;
+                    setRepoBranch(newBranch);
+                    saveRepoMetadata({ githubBranch: newBranch });
+                    toast(`Branch set to ${newBranch}`);
+                  }}
+                  title="Set branch"
+                  className="repo-action px-2 py-1 rounded ml-2"
+                >
+                  <span className="text-xs">{repoBranch}</span>
+                </button>
+
+                <button
+                  onClick={promptEditRepoName}
+                  title="Set repo name before publishing"
+                  className="repo-action px-2 py-1 rounded ml-2"
+                >
+                  <span className="text-xs">Set repo name</span>
+                </button>
+              </>
             )}
           </div>
 

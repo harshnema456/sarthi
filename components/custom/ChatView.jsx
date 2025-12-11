@@ -229,20 +229,23 @@ export default function ChatView(props) {
     };
 
     setMessages((prev) => {
-      const safePrev = Array.isArray(prev) ? prev : [];
-      const updated = [...safePrev, newMessage];
+  const safePrev = Array.isArray(prev) ? prev : [];
+  const updated = [...safePrev, newMessage];
 
-      // persist user message
-      UpdateMessages({
-        messages: updated,
-        workspaceId: id,
-      }).catch((e) => console.error("UpdateMessages failed:", e));
+  UpdateMessages({
+    messages: updated,
+    workspaceId: id,
+  }).catch((e) => console.error("UpdateMessages failed:", e));
 
-      // trigger AI with updated conversation
-      callAi(updated);
+  return updated;
+});
 
-      return updated;
-    });
+//  Now safe — triggers AFTER state update completes
+callAi([
+  ...messages,
+  newMessage
+]);
+
 
     setUserInput("");
     setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
