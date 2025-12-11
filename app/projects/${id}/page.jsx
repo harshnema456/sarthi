@@ -8,7 +8,7 @@ export async function GET(req, { params }) {
         const convex = createConvexClient();
         const project = await convex.query(api.projects.getByFrontendId, { id });
 
-        console.log("GET http://api/projects/${id}debug:", { id, found: !!project });
+        console.log("GET http://localhost:3000//api/projects/${id}debug:", { id, found: !!project });
 
         if (!project) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -16,7 +16,7 @@ export async function GET(req, { params }) {
 
         return NextResponse.json(project, { status: 200 });
     } catch (err) {
-        console.error("GET http://api/projects/[id] error:", err);
+        console.error("GET http://localhost:3000//api/projects/[id] error:", err);
         return NextResponse.json({ error: "Failed to fetch project" }, { status: 500 });
     }
 }

@@ -9,7 +9,7 @@
  */
 
 import type * as account from "../account.js";
-import type * as functions_migrations_backfillProjectIds from "../functions/migrations/backfillProjectIds.js";
+import type * as functions_migrations from "../functions/migrations.js";
 import type * as projects from "../projects.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
@@ -22,7 +22,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
-  "functions/migrations/backfillProjectIds": typeof functions_migrations_backfillProjectIds;
+  "functions/migrations": typeof functions_migrations;
   projects: typeof projects;
   users: typeof users;
   workspace: typeof workspace;

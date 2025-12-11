@@ -35,7 +35,7 @@ export const Create = mutation({
         ownerId: v.optional(v.id("users")),
         filesObj: v.optional(v.any()),
         filesCount: v.number(),
-        CreatedAt: v.string(),
+        CreatedAt: v.optional(v.string()),
         workspaceId: v.optional(v.id("workspace")), // note: Convex id type
     }),
     handler: async(ctx, args) => {

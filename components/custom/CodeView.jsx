@@ -59,7 +59,7 @@ function CodeView({ projectFiles }) {
     if (!id) return;
     const loadRepoInfo = async () => {
       try {
-        const res = await fetch(`/api/projects/${id}`);
+        const res = await fetch(`http://localhost:3000//api/projects/${id}`);
         if (!res.ok) {
           toast("Failed to load project metadata");
           return;
@@ -79,7 +79,7 @@ function CodeView({ projectFiles }) {
   const saveRepoMetadata = async (meta = {}) => {
     if (!id) return;
     try {
-      await fetch(`http://api/projects/${id}`, {
+      await fetch(`http://localhost:3000//api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(meta),

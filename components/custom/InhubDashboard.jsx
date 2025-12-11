@@ -96,7 +96,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
 
       try {
         const proj = await fetch(
-          `/api/projects/get?id=${initialProjectId}`
+          `http://localhost:3000//api/projects/get?id=${initialProjectId}`
         ).then((r) => r.json());
         if (proj) openProject(proj);
       } catch (e) {
@@ -259,7 +259,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
 
     if (!projectObj) {
       try {
-        const fetched = await fetch(`/api/projects/get?id=${proj}`)
+        const fetched = await fetch(`http://localhost:3000//api/projects/get?id=${proj}`)
           .then((r) => r.json())
           .catch(() => null);
 

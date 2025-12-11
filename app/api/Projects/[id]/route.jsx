@@ -27,7 +27,7 @@ export async function GET(req, context) {
     const project = await convex.query(api.projects.getByFrontendId, { id });
 
     // Log for server-side trace
-    console.log("GET http://api/projects/${id}", { id, found: !!project });
+    console.log("GET http://localhost:3000//api/projects/${id}", { id, found: !!project });
 
     if (!project) {
       // In dev-mode provide more detail for debugging
@@ -54,7 +54,7 @@ export async function GET(req, context) {
     // Return project in normal operation
     return NextResponse.json(project, { status: 200 });
   } catch (err) {
-    console.error("GET http://api/projects/[id] error:", err);
+    console.error("GET http://localhost:3000//api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to fetch project", details: String(err) }, { status: 500 });
   }
 }
@@ -71,11 +71,11 @@ export async function PATCH(req, context) {
     const convex = createConvexClient();
     const updated = await convex.mutation(api.projects.update, { id, ...body });
 
-    console.log("PATCH http://api/projects/${id}", { id, updated });
+    console.log("PATCH http://localhost:3000//api/projects/${id}", { id, updated });
 
     return NextResponse.json(updated, { status: 200 });
   } catch (err) {
-    console.error("PATCH http://api/projects/[id] error:", err);
+    console.error("PATCH http://localhost:3000//api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to update project", details: String(err) }, { status: 500 });
   }
 }
@@ -88,13 +88,13 @@ export async function DELETE(req, context) {
     const convex = createConvexClient();
     const result = await convex.mutation(api.projects.remove, { id });
 
-    console.log("DELETE http://api/projects/${id}", { id, result });
+    console.log("DELETE http://localhost:3000//api/projects/${id}", { id, result });
 
     if (!result?.deleted) return NextResponse.json({ error: "Project not found or not deleted" }, { status: 404 });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
-    console.error("DELETE http://api/projects/[id] error:", err);
+    console.error("DELETE http://localhost:3000//api/projects/[id] error:", err);
     return NextResponse.json({ error: "Failed to delete project", details: String(err) }, { status: 500 });
   }
 }
