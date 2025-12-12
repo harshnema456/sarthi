@@ -53,10 +53,10 @@ export default function Create() {
   /* ============ SIGNOUT LOGIC ============ */
   const handleSignout = () => {
     try {
-      // 🔥 Clear all stored session data
+      //  Clear all stored session data
       localStorage.clear();
 
-      // 🔥 Redirect user to login page
+      //Redirect user to login page
       router.push("/login");
 
       toast.success("Signed out successfully");
@@ -137,7 +137,7 @@ export default function Create() {
             <Settings size={16} /> Settings
           </button>
 
-          {/* 🔥 SIGNOUT BUTTON UPDATED */}
+          {/*  SIGNOUT BUTTON UPDATED */}
           <button
             onClick={handleSignout}
             className="flex items-center gap-3 hover:text-red-400 transition"

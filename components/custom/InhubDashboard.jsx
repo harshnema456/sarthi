@@ -199,39 +199,48 @@ export default function InhubDashboard({ initialProjectId = null }) {
   }, [previewUrl]);
 
   // ========= CREATE PROJECT =========
-  const handleCreate = async (_fromSuggestion = false, autoSend = true) => {
+ const handleCreate = async (_fromSuggestion = false, autoSend = true) => {
     if (!prompt.trim()) return;
     setIsCreating(true);
-
+ 
     try {
       let projId = activeProjectId;
-
+ 
+      // Agar naya project hai
       if (!projId) {
         projId = makeId("proj-");
+       
+        // Data prep
         const newProj = {
           id: projId,
           name: prompt,
           owner: displayName,
           filesObj: {},
           filesCount: 0,
-          CreatedAt: new Date().toISOString(),
+          // Fixed casing to match Schema
+          createdAt: new Date().toISOString(),
+          // Important: Pass workspaceId explicitly for the schema index to work
+          workspaceId: projId,
         };
-
+ 
+        // 1. Pehle Database mein wait karo (CRITICAL FIX)
+        try {
+          await CreateProject(newProj);
+        } catch (err) {
+          console.error("CreateProject convex failed", err);
+          // Agar save fail ho gaya to aage mat badho
+          setIsCreating(false);
+          return;
+        }
+ 
+        // 2. Database success ke baad UI update karo
         upsertProject(newProj);
         setProjectFiles({});
         updatePreview({});
-
-        (async () => {
-          try {
-            await CreateProject(newProj);
-          } catch (err) {
-            console.warn("CreateProject convex failed", err);
-          }
-        })();
       }
-
+ 
       setActiveProjectId(projId);
-
+ 
       if (typeof window !== "undefined") {
         setTimeout(() => {
           window.dispatchEvent(
@@ -241,8 +250,10 @@ export default function InhubDashboard({ initialProjectId = null }) {
           );
         }, 80);
       }
-
+ 
       setActiveTab("chat");
+    } catch (e) {
+      console.error("Error in handleCreate flow", e);
     } finally {
       setIsCreating(false);
       setPrompt("");
@@ -626,7 +637,7 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
             </div>
             <ChatView
               openCode={() => setActiveTab("code")}
-              activeProjectId={activeProjectId}
+              projectId={activeProjectId}
               initialPrompt={prompt}
             />
           </div>

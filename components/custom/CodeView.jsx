@@ -38,7 +38,7 @@ function wait(ms) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-function CodeView({ projectFiles }) {
+function CodeView({ projectFiles, projectId }) {
   const { id } = useParams();
 
   const [files, setFiles] = useState(Lookup.DEFAULT_FILE ?? {});
@@ -56,10 +56,10 @@ function CodeView({ projectFiles }) {
   }, [projectFiles]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!projectId) return;
     const loadRepoInfo = async () => {
       try {
-        const res = await fetch(`http://localhost:3000//api/projects/${id}`);
+        const res = await fetch(`/api/projects/${projectId}`);
         if (!res.ok) {
           toast("Failed to load project metadata");
           return;
