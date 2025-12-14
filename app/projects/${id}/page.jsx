@@ -8,7 +8,7 @@ export async function GET(req, { params }) {
         const convex = createConvexClient();
         const project = await convex.query(api.projects.getByFrontendId, { id });
 
-        console.log("GET http://localhost:3000//api/projects/${id}debug:", { id, found: !!project });
+        console.log("GET http://localhost:3000//api/Projects/${id}debug:", { id, found: !!project });
 
         if (!project) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 });

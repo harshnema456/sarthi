@@ -6,346 +6,199 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import SignInDialog from "@/components/custom/SignInDialog";
 
-export default function LoginPage() {
-  const [openDialog, setOpenDialog] = useState(false);
+/*
+  Single-file React login page (JSX).
+  - Uses the same Tailwind classes / theme as your uploaded project.
+  - Preserves theme, layout, text and background styling.
+  - Minimal client-side validation, Convex mutation, and SignInDialog wiring.
+*/
 
-  // form state
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  // UX state
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
 
   const router = useRouter();
-
-  // convex mutation: file should be convex/logins.js
   const createLogin = useMutation(api.logins.createLogin);
 
-  const handleSubmit = async (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    if (!email || !password || loading) return;
+    if (!email) {
+      setError("Please enter your email.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    if (loading) return;
 
     try {
       setLoading(true);
-      setErrorMsg(null);
-
-      // 1️⃣ Ask Convex to validate & (optionally) save this login
-      //    Your convex/logins.js should either:
-      //    - return { ok: true, ... } on success, OR
-      //    - throw an Error("Invalid email or password") on failure
+      // Call Convex mutation (expect { ok: true } or throw)
       const result = await createLogin({ email, password });
 
-      // If your mutation returns a flag, respect it:
+      // If mutation returns ok:false, show message
       if (result && result.ok === false) {
-        setErrorMsg("Invalid email or password");
-        return; // ⛔ don't go to dashboard
+        setError(result.message || "Invalid email or password");
+        return;
       }
 
-      // 2️⃣ Only if Convex succeeded → go to dashboard route
+      // on success, route to dashboard (keeps your original route)
       router.push("/InhubDashboard/default");
     } catch (err) {
       console.error(err);
-      // Convex throws for invalid login: show a friendly message
-      setErrorMsg(err.message || "Invalid email or password");
+      setError(err?.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
-  const isDisabled = loading || !email || !password;
-
   return (
-    <div className="login-page">
-      <div className="login-shell">
-        <div className="login-box">
-          {/* Logo - HJ icon removed, keep INHUB text */}
-          <div className="logo-wrap">
-            <span className="logo-text">INHUB</span>
+    <div className="min-h-screen bg-[#0a1520] text-white">
+      {/* Top header - same visual style as your project */}
+      <header className="fixed top-0 left-0 right-0 bg-[#0d1b2a] border-b border-[#1e3a52] px-8 py-5 shadow-lg z-50 backdrop-blur-sm bg-opacity-95">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-[#0a1520] font-bold text-lg">IH</span>
+            </div>
+            <span className="text-2xl font-bold">INHUB</span>
           </div>
 
-          {/* Title */}
-          <h1 className="login-title">
-            Log in to your
-            <br /> account
-          </h1>
-
-          <div className="divider">
-            <span></span>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit}>
-            <input
-              className="input"
-              type="email"
-              placeholder="user@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <div className="password-group">
-              <input
-                className="input"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <div className="forgot-wrap">
-                <a className="forgot">Forgot password?</a>
+           </div>
+      </header>
+      {/* Page content */}
+      <main className="pt-24">
+        <section className="min-h-[calc(100vh-6rem)] flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            {/* Card */}
+            <div className="bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-2xl p-8 shadow-2xl">
+              {/* Title */}
+              <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold mb-2">Log in to your account</h1>
+                <p className="text-sm text-gray-300">Welcome back — please enter your details below.</p>
               </div>
+
+              {/* Form */}
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full bg-[#0a1520] border border-[#1e3a52] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-semibold">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="text-xs text-gray-400 hover:text-[#00d9c5] transition-colors"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full bg-[#0a1520] border border-[#1e3a52] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
+                  />
+                </div>
+
+                {error && <p className="text-sm text-[#ff7b7b]">{error}</p>}
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" className="accent-[#00d9c5]" />
+                    Remember me
+                  </label>
+                  <a href="#" className="text-sm text-[#00d9c5] hover:text-[#00fff2]">Forgot password?</a>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full px-6 py-3 bg-gradient-to-r from-[#00d9c5] to-[#00b8a9] text-[#0a1520] rounded-lg font-bold hover:shadow-xl transition-all"
+                  disabled={loading}
+                >
+                  {loading ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+
+              {/* Or divider */}
+              <div className="flex items-center gap-4 my-6">
+                <div className="flex-1 h-px bg-[#1e3a52]" />
+                <div className="text-xs text-gray-400">Or continue with</div>
+                <div className="flex-1 h-px bg-[#1e3a52]" />
+              </div>
+
+              {/* Social / alternate sign-in buttons (visual only) */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1a2838] border border-[#1e3a52] rounded-lg text-gray-300 hover:border-[#00d9c5] transition-all"
+                  onClick={() => {
+                    // Keep GitHub visual-only for now
+                    console.log("GitHub sign-in clicked");
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="inline-block" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12c0 4.41 2.86 8.14 6.84 9.5.5.09.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.61-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1.01.07 1.54 1.04 1.54 1.04.9 1.54 2.36 1.1 2.94.84.09-.65.35-1.1.64-1.35-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 7.8c.85.004 1.71.115 2.51.337 1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.6 1.03 2.68 0 3.85-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85 0 1.33-.01 2.41-.01 2.74 0 .27.18.59.69.49A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z" fill="currentColor"/>
+                  </svg>
+                  GitHub
+                </button>
+
+                <button
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1a2838] border border-[#1e3a52] rounded-lg text-gray-300 hover:border-[#00d9c5] transition-all"
+                  onClick={() => {
+                    // Map Google button to open the SignInDialog (same routing as old Sign up)
+                    setOpenDialog(true);
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="inline-block" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.35 11.1h-9.17v2.92h5.26c-.23 1.36-1.07 2.52-2.27 3.3v2.73h3.68c2.16-1.99 3.41-4.9 3.41-8.95 0-.61-.05-1.2-.16-1.78zM12.18 3.5c1.74 0 3.31.6 4.54 1.8l2.7-2.7C17.34.97 14.86 0 12.18 0 7.85 0 4.07 2.79 2.26 6.82l3.78 2.95C6.57 6.02 9.16 3.5 12.18 3.5z" fill="currentColor"/>
+                  </svg>
+                  Google
+                </button>
+              </div>
+
+              {/* Small footer text */}
+              <p className="mt-6 text-center text-xs text-gray-400">
+                By continuing, you agree to our <a className="text-[#00d9c5]">Terms</a> and <a className="text-[#00d9c5]">Privacy Policy</a>.
+              </p>
             </div>
 
-            <button className="login-btn" type="submit" disabled={isDisabled}>
-              {loading ? "Logging in..." : "Log in"}
-            </button>
-          </form>
+            {/* Bottom small help text */}
+            <div className="text-center mt-4 text-sm text-gray-400">
+              Don't have an account? <span href="#" className="text-[#00d9c5] cursor-not-allowed opacity-50" >Sign up</span>
+            </div>
+          </div>
+        </section>
 
-          {errorMsg && (
-            <p
-              style={{
-                marginTop: "0.75rem",
-                color: "#f97373",
-                fontSize: 13,
-              }}
-            >
-              {errorMsg}
-            </p>
-          )}
+        {/* Optional: rest of page sections from your original app can remain below. Kept out to keep file focused on login */}
+      </main>
 
-          <p className="signup">
-            Don’t have an account?{" "}
-            <button
-              className="signup-btn"
-              onClick={() => setOpenDialog(true)}
-            >
-              Sign up
-            </button>
-          </p>
+      {/* Footer (kept visually consistent with your design) */}
+      <footer className="px-8 py-6 bg-[#0d1b2a] border-t border-[#1e3a52] mt-8">
+        <div className="max-w-7xl mx-auto text-center text-gray-400">
+          <p>© 2024 INHUB. All rights reserved. Built with innovation and passion.</p>
         </div>
-      </div>
+      </footer>
 
-      <SignInDialog
-        openDialog={openDialog}
-        closeDialog={() => setOpenDialog(false)}
-      />
-
-      <style jsx>{`
-        .login-page {
-          min-height: 100vh;
-          background: radial-gradient(
-            circle at top left,
-            #0f172a 0,
-            #020617 50%,
-            #020617 100%
-          );
-          color: #f8fafc;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
-            "Segoe UI", sans-serif;
-          padding: 1.5rem;
-        }
-
-        .login-shell {
-          width: 100%;
-          max-width: 460px;
-          padding: 2px;
-          border-radius: 28px;
-          background: linear-gradient(
-            135deg,
-            rgba(129, 140, 248, 0.8),
-            rgba(236, 72, 153, 0.7),
-            rgba(56, 189, 248, 0.7)
-          );
-          box-shadow: 0 28px 60px rgba(15, 23, 42, 0.9);
-        }
-
-        .login-box {
-          border-radius: 26px;
-          background: radial-gradient(
-            circle at top,
-            #020617,
-            #020617 40%,
-            #020617 100%
-          );
-          backdrop-filter: blur(18px);
-          padding: 2.6rem 2.4rem 2.3rem;
-          text-align: center;
-          box-shadow:
-            0 18px 40px rgba(15, 23, 42, 0.95),
-            0 0 0 1px rgba(148, 163, 184, 0.1);
-        }
-
-        .logo-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1.2rem; /* tightened spacing after removing icon */
-        }
-
-        .logo-text {
-          font-size: 18px;
-          font-weight: 600;
-          letter-spacing: 0.09em;
-          color: #e6eef8;
-        }
-
-        .login-title {
-          font-size: 32px;
-          font-weight: 700;
-          line-height: 1.15;
-          margin-bottom: 2rem;
-        }
-
-        .divider {
-          width: 100%;
-          text-align: center;
-          margin: 1.4rem 0 1.8rem;
-          color: #64748b;
-          font-size: 13px;
-          position: relative;
-        }
-        .divider span {
-          background: #020617;
-          padding: 0 10px;
-          position: relative;
-          z-index: 1;
-        }
-        .divider:before,
-        .divider:after {
-          content: "";
-          height: 1px;
-          background: linear-gradient(
-            to right,
-            rgba(148, 163, 184, 0),
-            rgba(148, 163, 184, 0.6),
-            rgba(148, 163, 184, 0)
-          );
-          position: absolute;
-          top: 50%;
-          width: 40%;
-        }
-        .divider:before {
-          left: 0;
-        }
-        .divider:after {
-          right: 0;
-        }
-
-        .input {
-          width: 100%;
-          background: rgba(15, 23, 42, 0.9);
-          border: 1px solid rgba(51, 65, 85, 0.9);
-          border-radius: 14px;
-          padding: 13px 14px;
-          font-size: 14px;
-          color: #e5e7eb;
-          margin-bottom: 1rem;
-          outline: none;
-          transition: border-color 0.16s ease, box-shadow 0.16s ease,
-            background 0.16s ease, transform 0.08s ease;
-        }
-        .input::placeholder {
-          color: #6b7280;
-        }
-        .input:focus {
-          border-color: #7c3aed;
-          box-shadow:
-            0 0 0 1px rgba(124, 58, 237, 0.7),
-            0 18px 40px rgba(15, 23, 42, 0.9);
-          background: rgba(15, 23, 42, 0.98);
-          transform: translateY(-1px);
-        }
-
-        .password-group {
-          margin-bottom: 1.2rem;
-        }
-
-        .forgot-wrap {
-          text-align: right;
-          margin-top: 0.25rem;
-        }
-
-        .forgot {
-          font-size: 13px;
-          color: #38bdf8;
-          cursor: pointer;
-          text-decoration: none;
-          transition: opacity 0.15s ease, transform 0.15s ease;
-        }
-        .forgot:hover {
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-
-        .login-btn {
-          width: 100%;
-          background: linear-gradient(135deg, #7c3aed, #a855f7);
-          border: none;
-          border-radius: 14px;
-          padding: 14px 0;
-          font-size: 15px;
-          font-weight: 600;
-          color: white;
-          cursor: pointer;
-          margin-top: 0.3rem;
-          box-shadow: 0 14px 30px rgba(124, 58, 237, 0.7);
-          transition: transform 0.12s ease, box-shadow 0.12s ease,
-            filter 0.12s ease;
-        }
-        .login-btn:hover:enabled {
-          transform: translateY(-1px);
-          box-shadow: 0 18px 38px rgba(124, 58, 237, 0.9);
-          filter: brightness(1.03);
-        }
-        .login-btn:active:enabled {
-          transform: translateY(1px);
-          box-shadow: 0 10px 22px rgba(124, 58, 237, 0.7);
-        }
-        .login-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .signup {
-          margin-top: 1.6rem;
-          color: #9ca3af;
-          font-size: 13px;
-        }
-        .signup-btn {
-          background: none;
-          border: none;
-          color: #38bdf8;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          margin-left: 4px;
-          padding: 0;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-          transition: opacity 0.15s ease, transform 0.15s ease;
-        }
-        .signup-btn:hover {
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-
-        @media (max-width: 480px) {
-          .login-shell {
-            max-width: 100%;
-          }
-          .login-box {
-            padding: 2.1rem 1.6rem 2rem;
-          }
-          .login-title {
-            font-size: 26px;
-          }
-        }
-      `}</style>
+      {/* SignInDialog (same dialog component as you already have) */}
+      <SignInDialog openDialog={openDialog} closeDialog={() => setOpenDialog(false)} />
     </div>
   );
 }

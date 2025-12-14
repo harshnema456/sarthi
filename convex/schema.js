@@ -18,6 +18,10 @@ export default defineSchema({
   }),
  
   workspace: defineTable({
+    name: v.optional(v.string()),
+    
+
+
     messages: v.any(),
     fileData: v.optional(v.any()),
     user: v.id("users"),
@@ -32,7 +36,9 @@ export default defineSchema({
     name: v.string(),
     owner: v.string(),
     ownerId: v.optional(v.id("users")),
- 
+
+
+    description: v.optional(v.string()),
     CreatedAt: v.optional(v.string()),
     createdAt: v.optional(v.string()),
  

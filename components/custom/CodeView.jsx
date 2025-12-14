@@ -79,7 +79,7 @@ function CodeView({ projectFiles, projectId }) {
   const saveRepoMetadata = async (meta = {}) => {
     if (!id) return;
     try {
-      await fetch(`http://localhost:3000//api/projects/${id}`, {
+      await fetch(`http://localhost:3000//api/Projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(meta),

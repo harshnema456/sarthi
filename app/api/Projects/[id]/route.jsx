@@ -27,7 +27,7 @@ export async function GET(req, context) {
     const project = await convex.query(api.projects.getByFrontendId, { id });
 
     // Log for server-side trace
-    console.log("GET http://localhost:3000//api/projects/${id}", { id, found: !!project });
+    console.log("GET http://localhost:3000//api/Projects/${id}", { id, found: !!project });
 
     if (!project) {
       // In dev-mode provide more detail for debugging
@@ -71,7 +71,7 @@ export async function PATCH(req, context) {
     const convex = createConvexClient();
     const updated = await convex.mutation(api.projects.update, { id, ...body });
 
-    console.log("PATCH http://localhost:3000//api/projects/${id}", { id, updated });
+    console.log("PATCH http://localhost:3000//api/Projects/${id}", { id, updated });
 
     return NextResponse.json(updated, { status: 200 });
   } catch (err) {
@@ -88,7 +88,7 @@ export async function DELETE(req, context) {
     const convex = createConvexClient();
     const result = await convex.mutation(api.projects.remove, { id });
 
-    console.log("DELETE http://localhost:3000//api/projects/${id}", { id, result });
+    console.log("DELETE http://localhost:3000//api/Projects/${id}", { id, result });
 
     if (!result?.deleted) return NextResponse.json({ error: "Project not found or not deleted" }, { status: 404 });
 

@@ -2,9 +2,69 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  Plus,
+  Github,
+  Cloud,
+  Copy,
+  Code,
+  Palette,
+  Zap,
+  Shield,
+  Database,
+  Layers,
+  Mail,
+  MapPin,
+  Phone,
+} from "lucide-react";
+
 export default function App() {
   const router = useRouter();
   const [active, setActive] = useState("process");
+
+  // action toggles from first file
+  const [copyCode, setCopyCode] = useState(false);
+  const [pushGitHub, setPushGitHub] = useState(false);
+  const [deployCloud, setDeployCloud] = useState(false);
+
+  const features = [
+    {
+      icon: Code,
+      title: "AI-Powered Development",
+      description:
+        "Leverage advanced artificial intelligence to generate clean, production-ready code tailored to your specifications.",
+    },
+    {
+      icon: Palette,
+      title: "Design System Integration",
+      description:
+        "Seamlessly integrate with modern design systems and component libraries for consistent UI/UX across your application.",
+    },
+    {
+      icon: Zap,
+      title: "Instant Deployment",
+      description:
+        "Deploy your applications instantly to the cloud with automated CI/CD pipelines and scalable infrastructure.",
+    },
+    {
+      icon: Shield,
+      title: "Enterprise Security",
+      description:
+        "Built with security-first architecture, ensuring your data and applications meet industry compliance standards.",
+    },
+    {
+      icon: Database,
+      title: "Database Management",
+      description:
+        "Integrated database solutions with automatic schema generation, migrations, and real-time synchronization.",
+    },
+    {
+      icon: Layers,
+      title: "Component Architecture",
+      description:
+        "Modular, reusable component structure following industry best practices for maintainability and scalability.",
+    },
+  ];
 
   const scrollTo = (id) => {
     const el = document.getElementById(id);
@@ -12,446 +72,376 @@ export default function App() {
     setActive(id);
   };
 
-  const handleRoute = () =>
-     router.push("/login");
+  const handleRoute = () => {
+    // preserve routing/connectivity from code2: navigate to /login
+    router.push("/login");
+  };
 
   return (
-    <div className="app-root">
-      <header className="navbar" role="navigation" aria-label="Main nav">
-        <div className="logo">INHUB</div>
-        <nav className="nav" aria-label="Primary">
-          <button
-  className={`nav-link ${active === "process" ? "active" : ""}`}
-  onClick={() => scrollTo("process")}
->
-  Process flow
-</button>
-
-<button
-  className={`nav-link ${active === "about" ? "active" : ""}`}
-  onClick={() => scrollTo("about")}
->
-  About us
-</button>
-
-<button
-  className={`nav-link ${active === "contact" ? "active" : ""}`}
-  onClick={() => scrollTo("contact")}
->
-  Contact us
-</button>
-
-        </nav>
+    <div className="min-h-screen bg-[#0a1520] text-white">
+      {/* Header (keeps first code's theme/layout) */}
+      <header className="fixed top-0 left-0 right-0 bg-[#0d1b2a] border-b border-[#1e3a52] px-8 py-5 shadow-lg z-50 backdrop-blur-sm bg-opacity-95">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-[#0a1520] font-bold text-lg">IH</span>
+            </div>
+            <span className="text-2xl font-bold">INHUB</span>
+          </div>
+          <nav className="flex gap-8">
+            <button
+              onClick={() => scrollTo("process")}
+              className={`text-sm font-semibold transition-colors ${
+                active === "process" ? "text-[#00d9c5]" : "text-gray-300 hover:text-white"
+              }`}
+            >
+              Process flow
+            </button>
+            <button
+              onClick={() => scrollTo("about")}
+              className={`text-sm transition-colors ${active === "about" ? "text-[#00d9c5]" : "text-gray-300 hover:text-white"}`}
+            >
+              About us
+            </button>
+            <button
+              onClick={() => scrollTo("contact")}
+              className={`text-sm transition-colors ${active === "contact" ? "text-[#00d9c5]" : "text-gray-300 hover:text-white"}`}
+            >
+              Contact us
+            </button>
+          </nav>
+        </div>
       </header>
 
-      <main>
-        <section className="hero" aria-labelledby="hero-title">
-          <svg
-            className="bg-tech"
-            viewBox="0 0 1200 600"
-            preserveAspectRatio="xMidYMid slice"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="g1" x1="0" x2="1">
-                <stop offset="0" stopColor="#2ea1c9" stopOpacity="0.12" />
-                <stop offset="1" stopColor="#6f2bdc" stopOpacity="0.06" />
-              </linearGradient>
-            </defs>
-            <g fill="none" stroke="url(#g1)" strokeWidth="1.2" strokeLinecap="round">
-              <path d="M80 120h360M480 160h560M80 200h240M420 240h720" />
-              <circle cx="680" cy="100" r="6" />
-              <circle cx="880" cy="220" r="5" />
-              <path d="M680 100v120h120" />
-            </g>
-          </svg>
-
-          <h1 id="hero-title" className="hero-title">
-            Design Your Website
-          </h1>
-
-          <div className="Create-box" onClick={handleRoute}>
-            <span>Create new project</span>
-            <span className="plus-icon" aria-hidden="true">
-              +
-            </span>
+      {/* Main Content */}
+      <main className="pt-20">
+        {/* Hero Section (keeps first code look) */}
+        <section className="px-8 py-8 bg-gradient-to-b from-[#0d1b2a] to-[#0a1520]">
+          <div className="max-w-7xl mx-auto text-center">
+            <h1 className="text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300">
+              Generate Your Website
+            </h1>
+            <p className="text-lg text-gray-300 max-w-3xl mx-auto">
+              Transform your ideas into production-ready web experiences with our AI-powered visual builder
+            </p>
           </div>
+        </section>
 
-          <article className="card" aria-labelledby="build-title">
-            <svg
-              className="tech-lines"
-              viewBox="0 0 300 180"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <g stroke="#2ea1c9" strokeWidth="1.2" fill="none" strokeLinecap="round">
-                <path d="M4 20h80" opacity="0.9" />
-                <path d="M4 34h120" opacity="0.7" />
-                <path d="M4 48h60" opacity="0.5" />
-                <circle cx="200" cy="40" r="8" opacity="0.9" />
-                <path d="M176 40h40" opacity="0.9" />
-                <path d="M176 48h40" opacity="0.5" />
-                <rect x="140" y="80" width="130" height="62" rx="8" opacity="0.06" fill="#2ea1c9" />
-                <line x1="160" y1="100" x2="240" y2="100" opacity="0.12" />
-                <line x1="160" y1="116" x2="220" y2="116" opacity="0.12" />
-              </g>
-            </svg>
-
-            <h2 id="build-title" className="card-title">
-              Build your project
-            </h2>
-            <div className="card-subtle">Home</div>
-
-            <button className="btn-get" onClick={handleRoute}>
-              Get Started
-            </button>
-
-            <div className="features" aria-hidden="true">
-              <div className="feature">Feature 1</div>
-              <div className="feature">Feature 2</div>
-              <div className="feature">Feature 3</div>
-            </div>
-          </article>
-
-          <div className="actions-row" role="toolbar" aria-label="primary actions">
-            <div className="actions-left" role="group" aria-label="tools">
-              <button className="action" onClick={handleRoute}>
-                📋 Copy code
-              </button>
-              <button className="action github" onClick={handleRoute}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  style={{ display: "inline-block", marginRight: 6 }}
-                  aria-hidden="true"
+        {/* Create New Project / Process Section (merged: visual from first, routing from second) */}
+        <section className="px-8 py-6" id="process">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-2xl p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Create new project</h2>
+                <button
+                  onClick={handleRoute}
+                  aria-label="Create new project"
+                  className="w-10 h-10 bg-[#1a2838] hover:bg-[#00d9c5] hover:text-[#0a1520] rounded-lg flex items-center justify-center transition-all"
                 >
-                  <path
-                    fill="currentColor"
-                    d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2.2c-3.2.7-3.8-1.4-3.8-1.4-.5-1.1-1.2-1.4-1.2-1.4-1-.7.1-.7.1-.7 1.1.1 1.7 1.1 1.7 1.1 1 .1 1.6.9 1.6.9.9 1.6 2.5 1.1 3.1.9.1-.7.4-1.1.7-1.3-2.6-.3-5.4-1.3-5.4-5.8 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.4 1.3 1-.3 2-.5 3-.5s2 .2 3 .5c2.4-1.6 3.4-1.3 3.4-1.3.6 1.6.2 2.9.1 3.2.7.9 1.2 2 1.2 3.2 0 4.5-2.9 5.5-5.4 5.8.4.3.8 1 .8 2v3c0 .3.2.7.8.6 4.6-1.5 7.8-5.8 7.8-10.9C23.5 5.6 18.35.5 12 .5z"
-                  />
-                </svg>
-                Push GitHub
-              </button>
-              <button className="action" onClick={handleRoute}>
-                ☁ Deploy to cloud
-              </button>
-            </div>
+                  <Plus size={20} />
+                </button>
+              </div>
 
-            <button className="generate" onClick={handleRoute}>
-              Generate
-            </button>
+              {/* Build your project card */}
+              <div className="bg-[#0a1520] border-2 border-[#1e3a52] rounded-xl p-6 mb-6">
+                {/* From code2: visual Create-box (keeps look) */}
+                <div
+                  onClick={handleRoute}
+                  className="max-w-full border-2 border-[#1e3a52] rounded-xl p-5 cursor-pointer mb-6 flex items-center justify-between bg-gradient-to-b from-[#0d1b2a] to-transparent"
+                >
+                  <div>
+                    <h3 className="text-xl font-semibold">Create new project</h3>
+                    <p className="text-sm text-gray-400">Start from a prompt or a template</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[#00d9c5] font-bold text-2xl">+</span>
+                  </div>
+                </div>
+
+                {/* Enhanced Features Grid (from first file) */}
+                <div className="mt-2 mb-4">
+                  <h2 className="text-xl font-bold mb-6 text-[#00d9c5]">Platform Capabilities</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {features.map((feature, index) => {
+                      const IconComponent = feature.icon;
+                      return (
+                        <div
+                          key={index}
+                          className="bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-xl p-5 hover:border-[#00d9c5] hover:shadow-xl transition-all duration-300 group"
+                        >
+                          <div className="w-14 h-14 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                            <IconComponent className="text-[#0a1520]" size={28} strokeWidth={2.5} />
+                          </div>
+                          <h4 className="font-bold mb-2 text-base text-white">{feature.title}</h4>
+                          <p className="text-sm text-gray-400 leading-relaxed">{feature.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons (keeps interactive toggles + routing on Get Started) */}
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex gap-3 flex-wrap">
+                  <button
+                    onClick={() => setCopyCode(!copyCode)}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg border-2 transition-all font-medium ${
+                      copyCode ? "bg-[#00d9c5] border-[#00d9c5] text-[#0a1520]" : "bg-[#1a2838] border-[#1e3a52] text-gray-300 hover:border-[#00d9c5]"
+                    }`}
+                  >
+                    <Copy size={18} />
+                    <span>Copy code</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPushGitHub(!pushGitHub)}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg border-2 transition-all font-medium ${
+                      pushGitHub ? "bg-[#00d9c5] border-[#00d9c5] text-[#0a1520]" : "bg-[#1a2838] border-[#1e3a52] text-gray-300 hover:border-[#00d9c5]"
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <Github size={18} />
+                    <span>Push GitHub</span>
+                  </button>
+
+                  <button
+                    onClick={() => setDeployCloud(!deployCloud)}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg border-2 transition-all font-medium ${
+                      deployCloud ? "bg-[#00d9c5] border-[#00d9c5] text-[#0a1520]" : "bg-[#1a2838] border-[#1e3a52] text-gray-300 hover:border-[#00d9c5]"
+                    }`}
+                  >
+                    <Cloud size={18} />
+                    <span>Deploy to cloud</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleRoute}
+                  className="px-8 py-3 bg-gradient-to-r from-[#00d9c5] to-[#00b8a9] text-[#0a1520] rounded-lg font-bold shadow-lg hover:shadow-2xl hover:scale-105 transition-all"
+                >
+                  Get Started
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
+        {/* About Us Section (keeps first code content & layout) */}
+        <section className="px-8 py-12 bg-gradient-to-b from-[#0a1520] to-[#0d1b2a]" id="about">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-10">
+              <h2 className="text-3xl font-bold mb-5">About us</h2>
+              <p className="text-base text-gray-300 max-w-4xl leading-relaxed">
+                INHUB is an enterprise-grade visual project builder that transforms conceptual ideas into production-ready web experiences.
+                Our platform empowers development teams to design sophisticated pages, generate scalable components, and seamlessly integrate with
+                version control systems—all from a unified development environment. We combine cutting-edge AI technology with industry best practices
+                to accelerate your development lifecycle.
+              </p>
+            </div>
 
-        <section id="about" className="section">
-          <h2>About us</h2>
-            <p>
-            INHUB is a visual project builder that turns your ideas into
-            production-ready web experiences. Design your pages, generate components,
-            and connect to GitHub from one place.
-          </p>
-          <br></br>
-          <br></br>
+            <div className="grid md:grid-cols-3 gap-8 bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-2xl p-8 shadow-2xl">
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold mb-4">
+                    <span className="text-[#00d9c5]">HJ</span>Infotech
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Where Innovation Meets Implementation, and Vision Transforms into Reality.
+                    We deliver comprehensive technology solutions that drive business growth and digital transformation.
+                  </p>
+                </div>
+              </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "40px" }}>
-    {/* Left Brand Area */}
-    <div style={{ flex: "1 1 350px" }}>
-      <h1 style={{ fontSize: "38px", fontWeight: "700", marginBottom: "8px", color: "#2ea1c9" }}>
-        HJ<span style={{ color: "#fff" }}>Infotech</span>
-      </h1>
-      <p style={{ fontSize: "16px", lineHeight: "1.6", maxWidth: "420px", opacity: 0.85 }}>
-        Where Innovation Meets Implementation, and Vision Transforms into Reality
-      </p>
-    </div>
+              <div>
+                <h4 className="font-bold mb-5 text-[#00d9c5] text-lg">Our Services</h4>
+                <ul className="space-y-3">
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Cloud Infrastructure
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      DevOps Solutions
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Cybersecurity Services
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Custom Development
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Digital Marketing
+                    </a>
+                  </li>
+                </ul>
+              </div>
 
-    {/* Services */}
-    <div style={{ flex: "1 1 220px" }}>
-      <h3 style={{ fontSize: "22px", marginBottom: "16px", color: "#2ea1c9" }}>Services</h3>
-      <ul style={{ listStyle: "none", padding: 0, lineHeight: "2" }}>
-        <li>Cloud</li>
-        <li>DevOps</li>
-        <li>Security</li>
-        <li>Development</li>
-        <li>Digital Marketing</li>
-      </ul>
-    </div>
-
-    {/* Quick Links */}
-    <div style={{ flex: "1 1 220px" }}>
-      <h3 style={{ fontSize: "22px", marginBottom: "16px", color: "#2ea1c9" }}>Quick Links</h3>
-      <ul style={{ listStyle: "none", padding: 0, lineHeight: "2" }}>
-        <li>Portfolio</li>
-        <li>Blog</li>
-        <li>Case Study</li>
-        <li>About Us</li>
-        <li>Contact</li>
-      </ul>
-    </div>
-  </div>
-        
-          
+              <div>
+                <h4 className="font-bold mb-5 text-[#00d9c5] text-lg">Quick Links</h4>
+                <ul className="space-y-3">
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Portfolio
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Blog & Resources
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Case Studies
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      About Us
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="text-sm text-gray-300 hover:text-[#00d9c5] transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-[#00d9c5] rounded-full"></span>
+                      Contact
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section id="contact" className="section">
-          <h2>Contact us</h2>
-          <p>📍 23, Ramnagar Extension, Sodala, Jaipur, Rajasthan 302019 <br />
-            ✉ Info@hjinfotech.com <br />
-          </p>
+        {/* Contact Us Section (keeps first code content & layout) */}
+        <section className="px-8 py-12 bg-[#0a1520]" id="contact">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-2xl p-8 shadow-2xl">
+              <h2 className="text-3xl font-bold mb-8">Contact us</h2>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <MapPin className="text-[#0a1520]" size={22} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-2 text-base">Corporate Address</h4>
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        23, Ramnagar Extension, Sodala
+                        <br />
+                        Jaipur, Rajasthan 302019
+                        <br />
+                        India
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <Mail className="text-[#0a1520]" size={22} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-2 text-base">Email Address</h4>
+                      <p className="text-sm text-gray-300">info@hjinfotech.com</p>
+                      <p className="text-sm text-gray-300">support@hjinfotech.com</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <Phone className="text-[#0a1520]" size={22} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-2 text-base">Phone Number</h4>
+                      <p className="text-sm text-gray-300">+91 (141) 234-5678</p>
+                      <p className="text-sm text-gray-300">+91 (141) 234-5679</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#0a1520] border border-[#1e3a52] rounded-xl p-5 mt-6">
+                    <h4 className="font-bold mb-2">Business Hours</h4>
+                    <p className="text-sm text-gray-400">Monday - Friday: 9:00 AM - 6:00 PM IST</p>
+                    <p className="text-sm text-gray-400">Saturday: 10:00 AM - 4:00 PM IST</p>
+                    <p className="text-sm text-gray-400">Sunday: Closed</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#0a1520] border-2 border-[#1e3a52] rounded-xl p-6">
+                  <h3 className="font-bold mb-5 text-lg">Send us a message</h3>
+                  <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-400">Full Name</label>
+                      <input
+                        type="text"
+                        placeholder="Enter your full name"
+                        className="w-full bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-400">Email Address</label>
+                      <input
+                        type="email"
+                        placeholder="Enter your email address"
+                        className="w-full bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-400">Subject</label>
+                      <input
+                        type="text"
+                        placeholder="Enter message subject"
+                        className="w-full bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-400">Message</label>
+                      <textarea
+                        placeholder="Enter your message here..."
+                        rows="4"
+                        className="w-full bg-[#0d1b2a] border-2 border-[#1e3a52] rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#00d9c5] transition-all"
+                      />
+                    </div>
+                    <button className="w-full px-6 py-3 bg-gradient-to-r from-[#00d9c5] to-[#00b8a9] text-[#0a1520] rounded-lg font-bold hover:shadow-xl transition-all">
+                      Send Message
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <footer className="footer">© {new Date().getFullYear()} INHUB</footer>
+        {/* Footer (from first file) */}
+        <footer className="px-8 py-8 bg-[#0d1b2a] border-t border-[#1e3a52]">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-lg flex items-center justify-center">
+                  <span className="text-[#0a1520] font-bold">IH</span>
+                </div>
+                <p className="text-sm text-gray-400">© {new Date().getFullYear()} INHUB. All rights reserved.</p>
+              </div>
+              <p className="text-sm text-gray-400">Built with innovation and passion by HJInfotech</p>
+            </div>
+          </div>
+        </footer>
       </main>
-
-      {/* Global styles */}
-      <style jsx global>{`
-        :root {
-          --bg: #030512;
-          --accent: #2ea1c9;
-          --white: #f4f6f9;
-          --purple: #6f2bdc;
-          --cta-blue: #2b677a;
-        }
-        * {
-          box-sizing: border-box;
-        }
-        body {
-          margin: 0;
-          font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-            Roboto, Arial;
-          -webkit-font-smoothing: antialiased;
-          background: linear-gradient(180deg, #030512 0%, #040411 60%);
-          color: var(--white);
-        }
-        .app-root {
-          min-height: 100vh;
-        }
-        .navbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 22px 36px;
-          position: sticky;
-          top: 0;
-          z-index: 60;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-          background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent);
-          backdrop-filter: blur(6px);
-        }
-        .logo {
-          font-weight: 800;
-          font-size: 22px;
-          letter-spacing: 2px;
-        }
-        .nav {
-          display: flex;
-          gap: 28px;
-          align-items: center;
-        }
-        .nav-link {
-          background: none;
-          border: none;
-          color: var(--white);
-          font-size: 18px;
-          cursor: pointer;
-          opacity: 0.95;
-        }
-        .nav-link.active {
-          color: var(--accent);
-          text-decoration: underline 2px rgba(46, 161, 201, 0.12);
-        }
-        .hero {
-          max-width: 980px;
-          margin: 44px auto 20px;
-          padding: 0 22px 40px;
-          position: relative;
-        }
-        .hero .bg-tech {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0.11;
-          z-index: 0;
-        }
-        .hero-title {
-          position: relative;
-          z-index: 2;
-          font-size: 64px;
-          margin: 28px 0;
-          font-weight: 700;
-        }
-        .Create-box {
-          max-width: 920px;
-          border-radius: 18px;
-          border: 2px solid rgba(46, 161, 201, 0.12);
-          padding: 18px 22px;
-          font-size: 22px;
-          color: var(--white);
-          margin-bottom: 18px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          cursor: pointer;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.006), transparent);
-        }
-        .Create-box:hover {
-          border-color: var(--accent);
-          box-shadow: 0 6px 20px rgba(46, 161, 201, 0.03);
-        }
-        .plus-icon {
-          font-size: 28px;
-          font-weight: 700;
-          margin-left: 12px;
-        }
-        .card {
-          max-width: 920px;
-          border-radius: 14px;
-          border: 1.6px solid rgba(46, 161, 201, 0.28);
-          padding: 28px;
-          margin-top: 18px;
-          position: relative;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent);
-          z-index: 1;
-        }
-        .card .tech-lines {
-          position: absolute;
-          right: 12px;
-          top: 12px;
-          width: 240px;
-          height: 160px;
-          opacity: 0.12;
-          pointer-events: none;
-        }
-        .card-title {
-          font-size: 42px;
-          margin: 0 0 12px;
-        }
-        .card-subtle {
-          color: rgba(255, 255, 255, 0.4);
-          margin-bottom: 10px;
-          font-size: 14px;
-        }
-        .btn-get {
-          background: var(--cta-blue);
-          border: 0;
-          padding: 10px 16px;
-          border-radius: 12px;
-          color: white;
-          cursor: pointer;
-          margin-top: 6px;
-          font-size: 15px;
-        }
-        .features {
-          display: flex;
-          gap: 14px;
-          margin-top: 24px;
-          flex-wrap: wrap;
-        }
-        .feature {
-          flex: 1;
-          min-width: 150px;
-          background: rgba(255, 255, 255, 0.02);
-          padding: 16px;
-          border-radius: 12px;
-          color: rgba(255, 255, 255, 0.92);
-        }
-        .actions-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-top: 24px;
-          max-width: 920px;
-        }
-        .actions-left {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        .action {
-          display: inline-flex;
-          gap: 10px;
-          align-items: center;
-          padding: 14px 20px;
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(255, 255, 255, 0.02);
-          color: var(--white);
-          cursor: pointer;
-          transition: all 160ms ease;
-          font-size: 14px;
-        }
-        .action:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-          border-color: rgba(255, 255, 255, 0.22);
-        }
-        .action.github svg {
-          fill: var(--accent);
-        }
-        .generate {
-          background: var(--purple);
-          color: white;
-          border: none;
-          padding: 14px 28px;
-          border-radius: 12px;
-          font-size: 18px;
-          cursor: pointer;
-          box-shadow: 0 10px 30px rgba(111, 43, 220, 0.28);
-          white-space: nowrap;
-        }
-        .section {
-          max-width: 920px;
-          margin: 64px auto;
-          padding: 12px 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.02);
-        }
-        .section h2 {
-          font-size: 28px;
-          margin-bottom: 8px;
-        }
-        .section p {
-          color: rgba(255, 255, 255, 0.75);
-          max-width: 640px;
-          line-height: 1.6;
-        }
-        .footer {
-          text-align: center;
-          margin: 60px 0;
-          color: rgba(255, 255, 255, 0.12);
-          font-size: 13px;
-        }
-        @media (max-width: 900px) {
-          .hero-title {
-            font-size: 40px;
-          }
-          .actions-row {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .actions-left {
-            justify-content: center;
-          }
-          .generate {
-            width: 100%;
-          }
-        }
-        @media (max-width: 480px) {
-          .Create-box {
-            font-size: 16px;
-            padding: 12px;
-          }
-          .card {
-            padding: 18px;
-          }
-          .feature {
-            min-width: 120px;
-          }
-        }
-      `}</style>
     </div>
   );
 }

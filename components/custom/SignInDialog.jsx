@@ -46,7 +46,7 @@ function SignInDialog({ openDialog, closeDialog }) {
           uid: uuid4(),
         });
 
-        console.log("Convex User ID:", userId);
+        //console.log("Convex User ID:", userId);
 
         // Create empty workspace
         const workspaceId = await CreateWorkspace({
@@ -54,7 +54,7 @@ function SignInDialog({ openDialog, closeDialog }) {
           user: userId,
         });
 
-        console.log("Workspace ID:", workspaceId);
+        //console.log("Workspace ID:", workspaceId);
 
         // Store locally
         if (typeof window !== "undefined") {

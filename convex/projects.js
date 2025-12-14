@@ -39,6 +39,7 @@ export const Create = mutation({
     id: v.string(),
     name: v.string(),
     owner: v.string(),
+    description: v.optional(v.string()),
     ownerId: v.optional(v.id("users")),
     filesObj: v.optional(v.any()),
     filesCount: v.number(),
