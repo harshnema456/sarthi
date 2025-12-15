@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useContext, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import ReactMarkdown from "react-markdown";
-import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { useConvex, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UserDetailContext } from "@/context/UserDetailContext";
@@ -14,10 +12,8 @@ import Lookup from "@/data/Lookup";
 import {
   ArrowRight,
   Loader2Icon,
-  Copy,
   Trash2,
   Link,
-  Code,
 } from "lucide-react";
 
 /* ---------------- TOKEN COUNTER ---------------- */
@@ -26,81 +22,44 @@ export const countToken = (inputText) => {
   return String(inputText).trim().split(/\s+/).filter(Boolean).length;
 };
 
-export default function ChatView(props) {
-  const { openCode, activeProjectId, initialPrompt } = props || {};
-  const { id } = useParams(); // route fallback
-  const convex = useConvex();
-
+export default function ChatView({ openCode, projectId, initialPrompt }) {
   const { messages, setMessages } = useContext(MessagesContext);
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
 
   const [userInput, setUserInput] = useState(initialPrompt || "");
   const [loading, setLoading] = useState(false);
 
-  const UpdateMessages = useMutation(api.workspace.UpdateMessages);
   const UpdateToken = useMutation(api.users.UpdateToken);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
-
-  // Dashboard → Chat handoff (prevents race condition)
-  const dashboardProjectIdRef = useRef(null);
+  const pendingAiMessagesRef = useRef(null);
 
   /* ---------------- HELPERS ---------------- */
-
-  function resolveWorkspaceId() {
-    return (
-      dashboardProjectIdRef.current ||
-      activeProjectId ||
-      id ||
-      null
-    );
-  }
 
   function safeExtractResultText(data) {
     if (!data) return null;
     if (typeof data.result === "string" && data.result.trim()) return data.result;
-
     if (data.response?.text?.trim()) return data.response.text;
 
     if (Array.isArray(data.response?.candidates)) {
-      const joined = data.response.candidates
+      return data.response.candidates
         .map((c) => c.text || c.content)
         .filter(Boolean)
         .join("\n\n");
-      if (joined) return joined;
     }
-
-    if (typeof data === "string" && data.trim()) return data;
     return null;
-  }
-
-  async function fetchWorkspace() {
-    const workspaceId = resolveWorkspaceId();
-    if (!workspaceId) return;
-
-    try {
-      const res = await convex.query(api.workspace.GetWorkspace, {
-        workspaceId,
-      });
-      setMessages(Array.isArray(res?.messages) ? res.messages : []);
-      setTimeout(() => inputRef.current?.focus(), 150);
-    } catch (err) {
-      console.error("fetchWorkspace error", err);
-      toast.error("Failed to load workspace");
-    }
   }
 
   /* ---------------- AI CALL ---------------- */
 
   async function callAi(currentMessages) {
     if (!currentMessages?.length) return;
-
-    const workspaceId = resolveWorkspaceId();
-    if (!workspaceId) return;
+    if (!projectId) return;
 
     setLoading(true);
-    const PROMPT = JSON.stringify(currentMessages) + " " + Prompt.CHAT_PROMPT;
+    const PROMPT =
+      JSON.stringify(currentMessages) + " " + Prompt.CHAT_PROMPT;
 
     try {
       const response = await fetch("/api/ai-chat", {
@@ -124,26 +83,29 @@ export default function ChatView(props) {
       const newMessages = [...currentMessages, aiMsg];
       setMessages(newMessages);
 
-      await UpdateMessages({ workspaceId, messages: newMessages });
-
-      /* token accounting */
+      // token accounting
       try {
         const used = countToken(JSON.stringify(aiMsg));
         const newToken = (userDetail?.token ?? 0) - used;
-
         setUserDetail((p) => ({ ...(p || {}), token: newToken }));
         if (userDetail?._id) {
           UpdateToken({ userId: userDetail._id, token: newToken });
         }
       } catch {}
 
-      /* code generation */
+      // code generation
       try {
-        const codeRes = await fetch("/api/gen-ai-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: aiMsg.content }),
-        });
+     const codeRes = await fetch("/api/gen-ai-code", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    prompt: currentMessages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("\n"),
+  }),
+});
+
 
         if (codeRes.ok) {
           const codeData = await codeRes.json();
@@ -152,7 +114,7 @@ export default function ChatView(props) {
               new CustomEvent("AI_FILES_READY", {
                 detail: {
                   files: codeData.files,
-                  projectId: workspaceId,
+                  projectId,
                   title: "Chat generated project",
                 },
               })
@@ -177,8 +139,7 @@ export default function ChatView(props) {
     const text = String(content).trim();
     if (!text) return;
 
-    const workspaceId = resolveWorkspaceId();
-    if (!workspaceId) {
+    if (!projectId) {
       toast.error("Create or open a project first");
       return;
     }
@@ -196,30 +157,27 @@ export default function ChatView(props) {
 
     setMessages((prev) => {
       const updated = [...(prev || []), newMessage];
-      UpdateMessages({ workspaceId, messages: updated }).catch(console.error);
+      pendingAiMessagesRef.current = updated;
       return updated;
     });
 
-    callAi([...(messages || []), newMessage]);
     setUserInput("");
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  async function clearConversation() {
-    const workspaceId = resolveWorkspaceId();
-    if (!workspaceId) return;
-
+  function clearConversation() {
     setMessages([]);
-    await UpdateMessages({ workspaceId, messages: [] });
     toast.success("Conversation cleared");
   }
 
   /* ---------------- EFFECTS ---------------- */
 
   useEffect(() => {
-    fetchWorkspace();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, activeProjectId]);
+    if (!pendingAiMessagesRef.current) return;
+    const msgs = pendingAiMessagesRef.current;
+    pendingAiMessagesRef.current = null;
+    callAi(msgs);
+  }, [messages]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -232,27 +190,8 @@ export default function ChatView(props) {
     if (pending) {
       localStorage.removeItem("pendingPrompt");
       sendUserMessage(pending);
-    } else if (initialPrompt) {
-      setUserInput(initialPrompt);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    const onDashboardPrompt = (e) => {
-      const { prompt, projectId } = e.detail || {};
-      if (!prompt) return;
-      if (projectId) dashboardProjectIdRef.current = projectId;
-      sendUserMessage(prompt);
-    };
-
-    window.addEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
-    return () =>
-      window.removeEventListener("DASHBOARD_PROMPT", onDashboardPrompt);
-  }, []);
-
-  const messagesCount = messages?.length ?? 0;
-  const tokensLeft = userDetail?.token ?? 0;
 
   /* ---------------- RENDER ---------------- */
 
@@ -264,12 +203,14 @@ export default function ChatView(props) {
           <h3 className="text-lg font-semibold">Chat</h3>
 
           <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
-            <span>{messagesCount} msgs</span>
+            <span>{messages?.length ?? 0} msgs</span>
           </div>
 
           <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
             <span>Tokens:</span>
-            <span className="font-medium">{tokensLeft}</span>
+            <span className="font-medium">
+              {userDetail?.token ?? 0}
+            </span>
           </div>
         </div>
 
@@ -280,13 +221,7 @@ export default function ChatView(props) {
           >
             <Trash2 size={16} />
           </button>
-          <button
-            onClick={() => {
-              const el = document.getElementById("sidebar-toggle");
-              if (el) el.click();
-            }}
-            className="p-2 rounded bg-[#0f1724] border border-slate-800"
-          >
+          <button className="p-2 rounded bg-[#0f1724] border border-slate-800">
             <Link size={16} />
           </button>
         </div>
@@ -340,14 +275,14 @@ export default function ChatView(props) {
           <button
             onClick={() => sendUserMessage(userInput)}
             disabled={loading || !userInput.trim()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#2b66d6] hover:bg-[#2a5fcc]"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#2b66d6]"
           >
             {loading ? (
               <Loader2Icon className="animate-spin" />
             ) : (
               <ArrowRight size={16} />
             )}
-            <span>Send</span>
+            <span>Generate</span>
           </button>
         </div>
       </div>

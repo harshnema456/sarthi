@@ -61,13 +61,19 @@ export default function InhubDashboard({ initialProjectId = null }) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const isValidProjectId = (id) =>typeof id === "string" && id.startsWith("proj-");
+
   const [projectFiles, setProjectFiles] = useState({});
   const [previewUrl, setPreviewUrl] = useState("");
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
+  
  
   const promptRef = useRef(null);
+
+  const [initialPrompt, setInitialPrompt] = useState("");
+
  
   // ========= UTILS =========
   const makeId = (prefix = "") =>
@@ -90,6 +96,23 @@ export default function InhubDashboard({ initialProjectId = null }) {
   };
  
   // ========= INITIAL LOAD =========
+
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const pendingPrompt = localStorage.getItem("pendingPrompt");
+  const projectId = localStorage.getItem("projectId");
+
+  if (pendingPrompt && projectId) {
+    setInitialPrompt(pendingPrompt);
+    setActiveProjectId(projectId);
+    setActiveTab("chat");
+  }
+
+  localStorage.removeItem("pendingPrompt");
+}, []);
+
+
   useEffect(() => {
     const fetchAndOpenProject = async () => {
       if (!initialProjectId) return;
@@ -211,17 +234,15 @@ export default function InhubDashboard({ initialProjectId = null }) {
         projId = makeId("proj-");
        
         // Data prep
-        const newProj = {
-          id: projId,
-          name: prompt,
-          owner: displayName,
-          filesObj: {},
-          filesCount: 0,
-          // Fixed casing to match Schema
-          createdAt: new Date().toISOString(),
-          // Important: Pass workspaceId explicitly for the schema index to work
-          workspaceId: projId,
-        };
+      const newProj = {
+  id: projId,
+  name: prompt,
+  owner: displayName,
+  filesObj: {},
+  filesCount: 0,
+  createdAt: new Date().toISOString(),
+};
+
  
         // 1. Pehle Database mein wait karo (CRITICAL FIX)
         try {
@@ -248,7 +269,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
               detail: { prompt, projectId: projId, autoSend: !!autoSend },
             })
           );
-        }, 80);
+        }, 500);
       }
  
       setActiveTab("chat");
@@ -346,69 +367,64 @@ export default function InhubDashboard({ initialProjectId = null }) {
   // ========= HANDLE REDIRECT FROM CREATE PAGE =========
 useEffect(() => {
   if (typeof window === "undefined") return;
- 
+
   const pendingPrompt = localStorage.getItem("pendingPrompt");
-  const workspaceId = localStorage.getItem("workspaceId");
- 
-  if (pendingPrompt && workspaceId) {
-    // Set prompt into dashboard state
+  const projectId = localStorage.getItem("projectId");
+
+  if (pendingPrompt && isValidProjectId(projectId)) {
     setPrompt(pendingPrompt);
- 
-    // Mark this project as active
-    setActiveProjectId(workspaceId);
- 
-    // Open Chat tab automatically
+    setActiveProjectId(projectId); 
     setActiveTab("chat");
- 
-    // CLEAN UP so it doesn't run again on refresh
-    localStorage.removeItem("pendingPrompt");
   }
+
+  // cleanup legacy keys
+  localStorage.removeItem("pendingPrompt");
+  localStorage.removeItem("workspaceId");
 }, []);
+
  
  
   // ========= AI / FILE UPDATE EVENTS =========
   useEffect(() => {
     const onAIFiles = (e) => {
       const detail = e.detail || {};
-      const files = detail.files || detail;
-      if (!files || typeof files !== "object") return;
+  const incomingFiles = detail.files || detail.filesObj;
+
+  if (!incomingFiles || typeof incomingFiles !== "object") return;
+
+  // ✅ normalize files shape
+  const filesObj = incomingFiles;
+
+  const projId =
+    (typeof detail.projectId === "string" && detail.projectId.startsWith("proj-"))
+      ? detail.projectId
+      : activeProjectId;
+
+  if (!projId) return;
  
-      const projId = detail.projectId || activeProjectId || makeId("proj-");
-      const title = detail.title || prompt || "Chat generated project";
+     const updatedProj = {
+    id: projId,
+    name: detail.title || prompt || "AI Project",
+    owner: displayName,
+    filesObj,
+    filesCount: Object.keys(filesObj).length,
+    createdAt: new Date().toISOString(),
+  };
  
-      const updatedProj = {
-        id: projId,
-        name: title,
-        owner: displayName,
-        filesObj: files,
-        filesCount: Object.keys(files).length,
-        CreatedAt: new Date().toISOString(),
-      };
+      setProjectFiles(filesObj);
+  updatePreview(filesObj);
+  upsertProject(updatedProj);
+  setActiveProjectId(projId);
  
-      setProjectFiles(files);
-      updatePreview(files);
-      upsertProject(updatedProj);
-      setActiveProjectId(projId);
- 
-      (async () => {
-        try {
-          await CreateProject(updatedProj);
-        } catch (err) {
-          try {
-            await updateProject({
-              id: projId,
-              filesObj: files,
-              filesCount: Object.keys(files).length,
-              owner: displayName,
-            });
-          } catch (e) {
-            console.warn("persist AI files failed", e);
-          }
-        }
-      })();
- 
+   
+ updateProject({
+    id: projId,
+    filesObj,
+    filesCount: Object.keys(filesObj).length,
+    owner: displayName,
+  });
       setActiveTab("code");
-      setTimeout(() => setActiveTab("preview"), 250);
+  setTimeout(() => setActiveTab("preview"), 200);
     };
  
     const onFileUpdate = (e) => {
@@ -587,14 +603,17 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
   };
  
   const renderProjectHistorySection = () => {
-    const filtered = (projects || []).filter((p) => {
-      if (!historySearch.trim()) return true;
-      const q = historySearch.toLowerCase();
-      return (
-        (p.name || "").toLowerCase().includes(q) ||
-        (p.id || "").toLowerCase().includes(q)
-      );
-    });
+ const filtered = (projects || [])
+  .filter((p) => typeof p.id === "string" && p.id.startsWith("proj-"))
+  .filter((p) => {
+    if (!historySearch.trim()) return true;
+    const q = historySearch.toLowerCase();
+    return (
+      (p.name || "").toLowerCase().includes(q) ||
+      (p.id || "").toLowerCase().includes(q)
+    );
+  });
+
  
     return (
       <div className="history-wrap">
@@ -638,6 +657,9 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
       </div>
     );
   };
+
+
+  
   const renderDashboard = () => {
     return (
       <div className="content-wrap">
@@ -693,16 +715,22 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
                 </p>
                 {activeProjectId && (
                   <div className="muted small">
-                    Active: <span className="text-neon">{activeProjectId}</span>
+                    {isValidProjectId(activeProjectId) && (
+  <div className="muted small">
+    Active: <span className="text-neon">{activeProjectId}</span>
+  </div>
+)}
+
                   </div>
                 )}
               </div>
             </div>
-            <ChatView
-              openCode={() => setActiveTab("code")}
-              projectId={activeProjectId}
-              initialPrompt={prompt}
-            />
+           <ChatView
+  projectId={activeProjectId}
+  initialPrompt={initialPrompt}
+  openCode={() => setActiveTab("code")}
+/>
+
           </div>
         );
  
@@ -836,6 +864,16 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
             onClick={() => setActiveTab("settings")}
           >
             Settings
+          </button>
+          <br />
+          <br />
+          <button
+            className="bottom-btn"
+            onClick={() => {
+              window.location.href = "/login";
+            }}
+          >
+            Sign Out
           </button>
         </div>
       </aside>
