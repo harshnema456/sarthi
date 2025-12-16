@@ -1,3 +1,4 @@
+
 "use client";
  
 import React, { useState, useEffect, useContext, useRef } from "react";
@@ -6,6 +7,8 @@ import ChatView from "@/components/custom/ChatView";
 import PreviewView from "./Previewview";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { MessagesContext } from "@/context/MessagesContext";
+
 import {
   FiGrid,
   FiFolder,
@@ -32,8 +35,8 @@ const uniqueProjects = (list = []) => {
 };
  
 /* keys/localStorage */
-const STORAGE_KEY = "inhub_projects_v1";
-const STORAGE_ACTIVE_KEY = "inhub_active_project_v1";
+// const STORAGE_KEY = "inhub_projects_v1";
+// const STORAGE_ACTIVE_KEY = "inhub_active_project_v1";
  
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: <FiGrid /> },
@@ -58,6 +61,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
   const removeProject = useMutation(api.projects.remove);
  
   // state
+  const { setMessages } = useContext(MessagesContext);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
@@ -220,6 +224,38 @@ export default function InhubDashboard({ initialProjectId = null }) {
       }
     };
   }, [previewUrl]);
+  // 🔹 RESTORE CHAT ON REFRESH
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const projectId = localStorage.getItem("projectId");
+  const raw = localStorage.getItem("inhub_chat");
+
+  if (projectId && raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed[projectId]) {
+        setMessages(parsed[projectId]);
+      }
+    } catch {}
+  }
+}, []);
+const { messages } = useContext(MessagesContext);
+
+useEffect(() => {
+  if (!activeProjectId) return;
+
+  try {
+    const raw = localStorage.getItem("inhub_chat");
+    const all = raw ? JSON.parse(raw) : {};
+
+    all[activeProjectId] = messages;
+
+    localStorage.setItem("inhub_chat", JSON.stringify(all));
+  } catch {}
+}, [messages, activeProjectId]);
+
+
  
   // ========= CREATE PROJECT =========
  const handleCreate = async (_fromSuggestion = false, autoSend = true) => {
@@ -264,11 +300,12 @@ export default function InhubDashboard({ initialProjectId = null }) {
  
       if (typeof window !== "undefined") {
         setTimeout(() => {
-          window.dispatchEvent(
-            new CustomEvent("DASHBOARD_PROMPT", {
-              detail: { prompt, projectId: projId, autoSend: !!autoSend },
-            })
-          );
+         window.dispatchEvent(
+  new CustomEvent("DASHBOARD_PROMPT", {
+    detail: { prompt, projectId: projId, autoSend: true },
+  })
+);
+
         }, 500);
       }
  
@@ -364,23 +401,23 @@ export default function InhubDashboard({ initialProjectId = null }) {
     }
   };
  
-  // ========= HANDLE REDIRECT FROM CREATE PAGE =========
-useEffect(() => {
-  if (typeof window === "undefined") return;
+//   // ========= HANDLE REDIRECT FROM CREATE PAGE =========
+// useEffect(() => {
+//   if (typeof window === "undefined") return;
 
-  const pendingPrompt = localStorage.getItem("pendingPrompt");
-  const projectId = localStorage.getItem("projectId");
+//   const pendingPrompt = localStorage.getItem("pendingPrompt");
+//   const projectId = localStorage.getItem("projectId");
 
-  if (pendingPrompt && isValidProjectId(projectId)) {
-    setPrompt(pendingPrompt);
-    setActiveProjectId(projectId); 
-    setActiveTab("chat");
-  }
+//   if (pendingPrompt && isValidProjectId(projectId)) {
+//     setPrompt(pendingPrompt);
+//     setActiveProjectId(projectId); 
+//     setActiveTab("chat");
+//   }
 
-  // cleanup legacy keys
-  localStorage.removeItem("pendingPrompt");
-  localStorage.removeItem("workspaceId");
-}, []);
+//   // cleanup legacy keys
+//   localStorage.removeItem("pendingPrompt");
+//   localStorage.removeItem("workspaceId");
+// }, []);
 
  
  
@@ -424,7 +461,7 @@ useEffect(() => {
     owner: displayName,
   });
       setActiveTab("code");
-  setTimeout(() => setActiveTab("preview"), 200);
+  setTimeout(() => setActiveTab("preview"), 2000);
     };
  
     const onFileUpdate = (e) => {
@@ -661,45 +698,59 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
 
   
   const renderDashboard = () => {
-    return (
-      <div className="content-wrap">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Total Projects */}
-          <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
-            <div>
-              <p className="text-white/60 text-sm">Total Projects</p>
-              <h2 className="text-2xl font-semibold text-white">
-                {projects.length}
-              </h2>
-            </div>
-            <FiFolder className="text-cyan-400 text-xl" />
-          </div>
+  return (
+    <div className="content-wrap">
+      {/* Header row */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
+        <h1 className="welcome">Dashboard</h1>
 
-          {/* Tokens */}
-          <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
-            <div>
-              <p className="text-white/60 text-sm">Tokens Left</p>
-              <h2 className="text-2xl font-semibold text-white">
-                {userDetail?.token ?? 0}
-              </h2>
-            </div>
-            <FiGrid className="text-cyan-400 text-xl" />
-          </div>
+        <button
+          className="btn-Create"
+          onClick={() => {
+            window.location.href = "/login/Create";
+          }}
+        >
+          + Create New Project
+        </button>
+      </div>
 
-          {/* License */}
-          <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
-            <div>
-              <p className="text-white/60 text-sm">License</p>
-              <h2 className="text-2xl font-semibold text-white">
-                {userDetail?.license ?? "Free"}
-              </h2>
-            </div>
-            <FiEye className="text-cyan-400 text-xl" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Total Projects */}
+        <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
+          <div>
+            <p className="text-white/60 text-sm">Total Projects</p>
+            <h2 className="text-2xl font-semibold text-white">
+              {projects.length}
+            </h2>
           </div>
+          <FiFolder className="text-cyan-400 text-xl" />
+        </div>
+
+        {/* Tokens */}
+        <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
+          <div>
+            <p className="text-white/60 text-sm">Tokens Left</p>
+            <h2 className="text-2xl font-semibold text-white">
+              {userDetail?.token ?? 0}
+            </h2>
+          </div>
+          <FiGrid className="text-cyan-400 text-xl" />
+        </div>
+
+        {/* License */}
+        <div className="bg-[#142840] border border-[#1e3a56] rounded-lg p-6 flex justify-between items-center">
+          <div>
+            <p className="text-white/60 text-sm">License</p>
+            <h2 className="text-2xl font-semibold text-white">
+              {userDetail?.license ?? "Free"}
+            </h2>
+          </div>
+          <FiEye className="text-cyan-400 text-xl" />
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // ========= MAIN CONTENT =========
   const renderMainContent = () => {
@@ -827,8 +878,23 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
     <div className="dashboard-root full-viewport">
       <aside className="leftbar leftbar-wide">
         <div className="brand-top">
-          <div className="brand-mark">HJ</div>
-          <div className="brand-name">Inhub</div>
+           <div className="flex items-center gap-5 mb-6">
+  {/* Logo crop wrapper */}
+  <div className="h-16 overflow-hidden flex items-center">
+    <img
+      src="/logo.png"
+      alt="INHUB Logo"
+      className="h-36 w-auto bg-transparent mix-blend-lighten"
+    />
+  </div>
+ 
+  {/* Text stays EXACTLY the same */}
+  <h1 className="text-6xl font-semibold text-white">
+ 
+  </h1>
+</div>
+ 
+          
         </div>
  
         <nav
@@ -1395,3 +1461,14 @@ textarea.prompt-textarea:focus {
 }
  
  
+
+
+
+
+
+
+
+
+
+
+

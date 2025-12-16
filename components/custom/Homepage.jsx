@@ -83,10 +83,23 @@ export default function App() {
       <header className="fixed top-0 left-0 right-0 bg-[#0d1b2a] border-b border-[#1e3a52] px-8 py-5 shadow-lg z-50 backdrop-blur-sm bg-opacity-95">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-[#0a1520] font-bold text-lg">IH</span>
-            </div>
-            <span className="text-2xl font-bold">INHUB</span>
+           
+             <div className="flex items-center gap-5 mb-6">
+  {/* Logo crop wrapper */}
+  <div className="h-6 overflow-hidden flex items-center">
+    <img
+      src="/logo.png"
+      alt="INHUB Logo"
+      className="h-40 w-auto bg-transparent mix-blend-lighten"
+    />
+  </div>
+ 
+  {/* Text stays EXACTLY the same */}
+  <h1 className="text-6xl font-semibold text-white">
+ 
+  </h1>
+</div>
+ 
           </div>
           <nav className="flex gap-8">
             <button
@@ -110,6 +123,29 @@ export default function App() {
               Contact us
             </button>
           </nav>
+
+
+
+{/* SIGN IN BUTTON */}
+  <button
+    onClick={handleRoute}
+    className="
+      px-5 py-2
+      rounded-lg
+      bg-gradient-to-r from-[#00d9c5] to-[#00b8a9]
+      text-[#0a1520]
+      font-semibold
+      shadow-md
+      hover:shadow-xl
+      hover:scale-105
+      transition-all
+      text-sm
+    "
+  >
+    Sign In
+  </button>
+
+
         </div>
       </header>
 
@@ -445,3 +481,7 @@ export default function App() {
     </div>
   );
 }
+
+
+
+

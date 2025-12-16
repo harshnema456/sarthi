@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import React, { useContext, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -15,33 +15,33 @@ import {
   Trash2,
   Link,
 } from "lucide-react";
-
+ 
 /* ---------------- TOKEN COUNTER ---------------- */
 export const countToken = (inputText) => {
   if (!inputText) return 0;
   return String(inputText).trim().split(/\s+/).filter(Boolean).length;
 };
-
+ 
 export default function ChatView({ openCode, projectId, initialPrompt }) {
   const { messages, setMessages } = useContext(MessagesContext);
   const { userDetail, setUserDetail } = useContext(UserDetailContext);
-
+ 
   const [userInput, setUserInput] = useState(initialPrompt || "");
   const [loading, setLoading] = useState(false);
-
+ 
   const UpdateToken = useMutation(api.users.UpdateToken);
-
+ 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const pendingAiMessagesRef = useRef(null);
-
+ 
   /* ---------------- HELPERS ---------------- */
-
+ 
   function safeExtractResultText(data) {
     if (!data) return null;
     if (typeof data.result === "string" && data.result.trim()) return data.result;
     if (data.response?.text?.trim()) return data.response.text;
-
+ 
     if (Array.isArray(data.response?.candidates)) {
       return data.response.candidates
         .map((c) => c.text || c.content)
@@ -50,39 +50,39 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
     }
     return null;
   }
-
+ 
   /* ---------------- AI CALL ---------------- */
-
+ 
   async function callAi(currentMessages) {
     if (!currentMessages?.length) return;
     if (!projectId) return;
-
+ 
     setLoading(true);
     const PROMPT =
       JSON.stringify(currentMessages) + " " + Prompt.CHAT_PROMPT;
-
+ 
     try {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: PROMPT }),
       });
-
+ 
       if (!response.ok) throw new Error("AI request failed");
-
+ 
       const data = await response.json();
       const textResult = safeExtractResultText(data);
       if (!textResult) throw new Error("Empty AI response");
-
+ 
       const aiMsg = {
         role: "ai",
         content: textResult,
         timestamp: new Date().toISOString(),
       };
-
+ 
       const newMessages = [...currentMessages, aiMsg];
       setMessages(newMessages);
-
+ 
       // token accounting
       try {
         const used = countToken(JSON.stringify(aiMsg));
@@ -92,7 +92,7 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
           UpdateToken({ userId: userDetail._id, token: newToken });
         }
       } catch {}
-
+ 
       // code generation
       try {
      const codeRes = await fetch("/api/gen-ai-code", {
@@ -105,8 +105,8 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
       .join("\n"),
   }),
 });
-
-
+ 
+ 
         if (codeRes.ok) {
           const codeData = await codeRes.json();
           if (codeData?.files) {
@@ -132,59 +132,59 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
       setLoading(false);
     }
   }
-
+ 
   /* ---------------- SEND MESSAGE ---------------- */
-
+ 
   function sendUserMessage(content) {
     const text = String(content).trim();
     if (!text) return;
-
+ 
     if (!projectId) {
       toast.error("Create or open a project first");
       return;
     }
-
+ 
     if ((userDetail?.token ?? 0) < 10) {
       toast.error("Not enough tokens");
       return;
     }
-
+ 
     const newMessage = {
       role: "user",
       content: text,
       timestamp: new Date().toISOString(),
     };
-
+ 
     setMessages((prev) => {
       const updated = [...(prev || []), newMessage];
       pendingAiMessagesRef.current = updated;
       return updated;
     });
-
+ 
     setUserInput("");
     setTimeout(() => inputRef.current?.focus(), 50);
   }
-
+ 
   function clearConversation() {
     setMessages([]);
     toast.success("Conversation cleared");
   }
-
+ 
   /* ---------------- EFFECTS ---------------- */
-
+ 
   useEffect(() => {
     if (!pendingAiMessagesRef.current) return;
     const msgs = pendingAiMessagesRef.current;
     pendingAiMessagesRef.current = null;
     callAi(msgs);
   }, [messages]);
-
+ 
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
     node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
-
+ 
   useEffect(() => {
     const pending = localStorage.getItem("pendingPrompt");
     if (pending) {
@@ -192,20 +192,20 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
       sendUserMessage(pending);
     }
   }, []);
-
+ 
   /* ---------------- RENDER ---------------- */
-
+ 
   return (
     <div className="h-[83vh] flex flex-col">
       {/* HEADER */}
       <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-[#071127]">
         <div className="flex items-center gap-4">
           <h3 className="text-lg font-semibold">Chat</h3>
-
+ 
           <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
             <span>{messages?.length ?? 0} msgs</span>
           </div>
-
+ 
           <div className="inline-flex items-center gap-2 bg-[#0b1624] px-3 py-1 rounded border border-slate-800 text-sm text-slate-300">
             <span>Tokens:</span>
             <span className="font-medium">
@@ -213,7 +213,7 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
             </span>
           </div>
         </div>
-
+ 
         <div className="flex items-center gap-2">
           <button
             onClick={clearConversation}
@@ -226,26 +226,52 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
           </button>
         </div>
       </div>
-
+ 
       {/* MESSAGES */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-auto p-6"
-        style={{ background: "#0b0b0c" }}
-      >
+      <div      
+  ref={containerRef}
+  className="
+    flex-1 overflow-auto
+    px-6 py-8
+    bg-gradient-to-b
+    from-[#0b1220]
+    via-[#0b0f16]
+    to-[#090d13]
+    border border-white/5
+    rounded-2xl
+    mx-6 my-4
+  "
+>
         <div className="mx-auto max-w-6xl">
           {!messages || messages.length === 0 ? (
             <div className="text-slate-400 italic">
               No messages yet — start the conversation
             </div>
           ) : (
-            messages.map((m, i) => (
-              <div key={i} className="mb-4">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
-            ))
+           messages.map((m, i) => (
+  <div
+    key={i}
+    className={`mb-6 flex ${
+      m.role === "user" ? "justify-end" : "justify-start"
+    }`}
+  >
+    <div
+  className={`
+    max-w-[80%] px-4 py-3 rounded-xl text-sm leading-relaxed
+    ${
+      m.role === "user"
+        ? "bg-[#22e6cf] text-[#04120d] rounded-br-none font-medium"
+        : "bg-[#111827] text-slate-200 rounded-bl-none border border-white/5"
+    }
+  `}
+>
+ 
+      <ReactMarkdown>{m.content}</ReactMarkdown>
+    </div>
+  </div>
+))
+ 
           )}
-
           {loading && (
             <div className="flex items-center gap-2 mt-4">
               <Loader2Icon className="animate-spin" />
@@ -254,9 +280,14 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
           )}
         </div>
       </div>
-
+ 
       {/* INPUT */}
-      <div className="px-6 pb-6 pt-2 bg-[#0f1318] border-t border-slate-800">
+      <div className="
+  px-6 py-4
+  bg-gradient-to-t from-[#0f1318] to-[#0b1220]
+  border-t border-white/5
+  backdrop-blur
+">
         <textarea
           ref={inputRef}
           value={userInput}
@@ -270,7 +301,7 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
           className="w-full bg-transparent resize-none outline-none text-slate-100 min-h-[84px]"
           disabled={loading}
         />
-
+ 
         <div className="mt-3 flex justify-end">
           <button
             onClick={() => sendUserMessage(userInput)}
@@ -289,3 +320,5 @@ export default function ChatView({ openCode, projectId, initialPrompt }) {
     </div>
   );
 }
+ 
+ 

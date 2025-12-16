@@ -1,3 +1,6 @@
+
+
+
 "use client";
 
 import React, { useContext, useEffect, useState } from "react";
@@ -38,13 +41,67 @@ const makeId = (prefix = "proj-") =>
     .toString(36)
     .slice(2, 6)}`;
 
+
+  /* =========================
+   Quick Start Templates
+========================= */
+const QUICK_STARTS = [
+  {
+    title: "AI Chat Application",
+    description:
+      "Build a modern AI chat application using React, Tailwind, authentication, and persistent chat history.",
+    projectName: "AI Chat Application",
+    prompt:
+      "Build a modern AI chat application using React, Tailwind CSS, authentication, and persistent chat history. Include chat UI, message storage, and API integration.",
+  },
+  {
+    title: "SaaS Landing Page",
+    description:
+      "Create a responsive SaaS landing page with hero section, pricing cards, features, and call to action.",
+    projectName: "SaaS Landing Page",
+    prompt:
+      "Create a responsive SaaS landing page with hero section, pricing, features, and CTA.",
+  },
+  {
+    title: "Admin Dashboard",
+    description:
+      "Build an admin dashboard with charts, tables, user management, and role-based access.",
+    projectName: "Admin Dashboard",
+    prompt:
+      "Build an admin dashboard with charts, tables, analytics, user management, and role-based access control.",
+  },
+  {
+    title: "E-commerce Store",
+    description:
+      "Generate a full-stack e-commerce app with product listing, cart, checkout, and order history.",
+    projectName: "E-commerce Store",
+    prompt:
+      "Generate a full-stack e-commerce application with product listings, shopping cart, checkout, and order history.",
+  },
+];
+
 /* =========================
    Sidebar
 ========================= */
 function Sidebar({ activeTab, onDashboard, onProjects, onSignOut }) {
   return (
     <aside className="w-64 bg-[#0d1b2e] border-r border-[#1e3149] p-5 flex flex-col">
-      <h1 className="text-2xl font-semibold text-white mb-6">INHUB</h1>
+      <div className="flex items-center gap-5 mb-6">
+  {/* Logo crop wrapper */}
+  <div className="h-16 overflow-hidden flex items-center">
+    <img
+      src="/logo.png"
+      alt="INHUB Logo"
+      className="h-36 w-auto bg-transparent mix-blend-lighten"
+    />
+  </div>
+ 
+  {/* Text stays EXACTLY the same */}
+  <h1 className="text-6xl font-semibold text-white">
+ 
+  </h1>
+</div>
+ 
 
       <nav className="flex-1 space-y-1">
         <SidebarItem
@@ -121,6 +178,7 @@ export default function Create() {
   const projectsQuery = useQuery(api.projects.list, {
     owner: displayName,
   });
+  const setUserDetail = useContext(UserDetailContext).setUserDetail;
   const CreateProject = useMutation(api.projects.Create);
 
   /* State */
@@ -132,7 +190,87 @@ export default function Create() {
   const [historySearch, setHistorySearch] = useState("");
 
   
+/* =========================
+   Quick Start Handler
+========================= */
+const handleQuickStart = (item) => {
+  setProjectName(item.projectName);
+  setWorkspacePrompt(item.prompt);
 
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+};
+
+/* =========================
+   REAL Sign Out Handler
+========================= */
+const handleSignOut = async () => {
+  try {
+    // 1️⃣ Clear app state
+    setProjects([]);
+    setMessages([]);
+
+    // 2️⃣ Clear stored data
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3️⃣ Prevent back navigation AFTER logout
+    window.history.pushState(null, "", "/login");
+    window.onpopstate = () => {
+      window.history.pushState(null, "", "/login");
+    };
+
+    // 4️⃣ Hard redirect (kills session)
+    window.location.replace("/login");
+  } catch (err) {
+    console.error("Sign out failed:", err);
+    window.location.replace("/login");
+  }
+};
+
+/* =========================
+
+
+     User Hydration Fix
+
+
+  ========================= */
+
+
+  useEffect(() => {
+
+
+    const hydrateUser = async () => {
+      // 1. Get from Local Storage
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!storedUser?.email) return;
+      // FIX: Pehle LocalStorage wala data set kardo taaki projects turant dikh jaye
+      // (Assuming storedUser mein basic details like email/name hain)
+      setUserDetail((prev) => ({ ...prev, ...storedUser }));
+      try {
+        const freshUser = await convex.query(api.users.GetUser, {
+          email: storedUser.email,
+        });
+        if (freshUser) {
+          setUserDetail(freshUser);
+          localStorage.setItem("user", JSON.stringify(freshUser))
+        }
+      } catch (error) {
+        console.error("Failed to fetch fresh user details", error);
+
+
+      }
+
+
+    };
+ 
+    hydrateUser();
+
+
+  }, [convex, setUserDetail]); 
+ 
   /* =========================
      Sync projects (EXACT LOGIC)
   ========================= */
@@ -178,6 +316,7 @@ export default function Create() {
 
       // Pass prompt to dashboard
       localStorage.setItem("pendingPrompt", workspacePrompt);
+      localStorage.setItem("projectId", projectId);
 
       setMessages([]);
 
@@ -244,11 +383,12 @@ export default function Create() {
   return (
     <div className="flex h-screen bg-[#0a1628] text-white">
       <Sidebar
-        activeTab={activeTab}
-        onDashboard={() => setActiveTab("dashboard")}
-        onProjects={() => setActiveTab("projects")}
-        onSignOut={() => router.push("/login")}
-      />
+  activeTab={activeTab}
+  onDashboard={() => setActiveTab("dashboard")}
+  onProjects={() => setActiveTab("projects")}
+  onSignOut={handleSignOut}
+/>
+
 
       <main className="flex-1 p-6 overflow-auto">
         {activeTab === "dashboard" && (
@@ -296,6 +436,40 @@ export default function Create() {
                 <Plus className="inline mr-2" />
                 {loading ? "Creating..." : "Create Project"}
               </button>
+              {/* =========================
+   Quick Start Suggestions
+========================= */}
+<div className="mt-8">
+  <h3 className="text-lg font-semibold mb-4">
+    Quick Start Suggestions
+  </h3>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {QUICK_STARTS.map((item) => (
+      <div
+        key={item.title}
+        className="bg-[#142840] border border-[#1e3a56] rounded-lg p-5 flex flex-col justify-between"
+      >
+        <div>
+          <h4 className="text-white font-medium mb-1">
+            {item.title}
+          </h4>
+          <p className="text-white/60 text-sm">
+            {item.description}
+          </p>
+        </div>
+
+        <button
+          onClick={() => handleQuickStart(item)}
+          className="mt-4 w-fit px-4 py-1.5 bg-cyan-500 text-sm rounded-lg hover:bg-cyan-400 transition"
+        >
+          Start Project
+        </button>
+      </div>
+    ))}
+  </div>
+</div>
+
             </div>
           </>
         )}
@@ -305,3 +479,14 @@ export default function Create() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+

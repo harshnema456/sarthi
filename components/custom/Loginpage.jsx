@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import SignInDialog from "@/components/custom/SignInDialog";
-
+ 
 /*
   Single-file React login page (JSX).
   - Uses the same Tailwind classes / theme as your uploaded project.
   - Preserves theme, layout, text and background styling.
   - Minimal client-side validation, Convex mutation, and SignInDialog wiring.
 */
-
+ 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,14 +20,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
-
+ 
   const router = useRouter();
   const createLogin = useMutation(api.logins.createLogin);
-
+ 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
+ 
     if (!email) {
       setError("Please enter your email.");
       return;
@@ -36,20 +36,20 @@ export default function LoginPage() {
       setError("Please enter your password.");
       return;
     }
-
+ 
     if (loading) return;
-
+ 
     try {
       setLoading(true);
       // Call Convex mutation (expect { ok: true } or throw)
       const result = await createLogin({ email, password });
-
+ 
       // If mutation returns ok:false, show message
       if (result && result.ok === false) {
         setError(result.message || "Invalid email or password");
         return;
       }
-
+ 
       // on success, route to dashboard (keeps your original route)
       router.push("/InhubDashboard/default");
     } catch (err) {
@@ -59,19 +59,31 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
+ 
   return (
     <div className="min-h-screen bg-[#0a1520] text-white">
       {/* Top header - same visual style as your project */}
       <header className="fixed top-0 left-0 right-0 bg-[#0d1b2a] border-b border-[#1e3a52] px-8 py-5 shadow-lg z-50 backdrop-blur-sm bg-opacity-95">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#00d9c5] to-[#00b8a9] rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-[#0a1520] font-bold text-lg">IH</span>
-            </div>
-            <span className="text-2xl font-bold">INHUB</span>
+           <div className="flex items-center gap-5 mb-6">
+  {/* Logo crop wrapper */}
+  <div className="h-16 overflow-hidden flex items-center">
+    <img
+      src="/logo.png"
+      alt="INHUB Logo"
+      className="h-36 w-auto bg-transparent mix-blend-lighten"
+    />
+  </div>
+ 
+  {/* Text stays EXACTLY the same */}
+  <h1 className="text-6xl font-semibold text-white">
+ 
+  </h1>
+</div>
+ 
           </div>
-
+ 
            </div>
       </header>
       {/* Page content */}
@@ -85,7 +97,7 @@ export default function LoginPage() {
                 <h1 className="text-3xl font-bold mb-2">Log in to your account</h1>
                 <p className="text-sm text-gray-300">Welcome back — please enter your details below.</p>
               </div>
-
+ 
               {/* Form */}
               <form onSubmit={onSubmit} className="space-y-4">
                 <div>
@@ -98,7 +110,7 @@ export default function LoginPage() {
                     className="w-full bg-[#0a1520] border border-[#1e3a52] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
                   />
                 </div>
-
+ 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-semibold">Password</label>
@@ -118,9 +130,9 @@ export default function LoginPage() {
                     className="w-full bg-[#0a1520] border border-[#1e3a52] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9c5] transition-all"
                   />
                 </div>
-
+ 
                 {error && <p className="text-sm text-[#ff7b7b]">{error}</p>}
-
+ 
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2 text-sm text-gray-300">
                     <input type="checkbox" className="accent-[#00d9c5]" />
@@ -128,7 +140,7 @@ export default function LoginPage() {
                   </label>
                   <a href="#" className="text-sm text-[#00d9c5] hover:text-[#00fff2]">Forgot password?</a>
                 </div>
-
+ 
                 <button
                   type="submit"
                   className="w-full px-6 py-3 bg-gradient-to-r from-[#00d9c5] to-[#00b8a9] text-[#0a1520] rounded-lg font-bold hover:shadow-xl transition-all"
@@ -137,14 +149,14 @@ export default function LoginPage() {
                   {loading ? "Signing in..." : "Sign in"}
                 </button>
               </form>
-
+ 
               {/* Or divider */}
               <div className="flex items-center gap-4 my-6">
                 <div className="flex-1 h-px bg-[#1e3a52]" />
                 <div className="text-xs text-gray-400">Or continue with</div>
                 <div className="flex-1 h-px bg-[#1e3a52]" />
               </div>
-
+ 
               {/* Social / alternate sign-in buttons (visual only) */}
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -159,7 +171,7 @@ export default function LoginPage() {
                   </svg>
                   GitHub
                 </button>
-
+ 
                 <button
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1a2838] border border-[#1e3a52] rounded-lg text-gray-300 hover:border-[#00d9c5] transition-all"
                   onClick={() => {
@@ -173,32 +185,33 @@ export default function LoginPage() {
                   Google
                 </button>
               </div>
-
+ 
               {/* Small footer text */}
               <p className="mt-6 text-center text-xs text-gray-400">
                 By continuing, you agree to our <a className="text-[#00d9c5]">Terms</a> and <a className="text-[#00d9c5]">Privacy Policy</a>.
               </p>
             </div>
-
+ 
             {/* Bottom small help text */}
             <div className="text-center mt-4 text-sm text-gray-400">
               Don't have an account? <span href="#" className="text-[#00d9c5] cursor-not-allowed opacity-50" >Sign up</span>
             </div>
           </div>
         </section>
-
+ 
         {/* Optional: rest of page sections from your original app can remain below. Kept out to keep file focused on login */}
       </main>
-
+ 
       {/* Footer (kept visually consistent with your design) */}
       <footer className="px-8 py-6 bg-[#0d1b2a] border-t border-[#1e3a52] mt-8">
         <div className="max-w-7xl mx-auto text-center text-gray-400">
           <p>© 2024 INHUB. All rights reserved. Built with innovation and passion.</p>
         </div>
       </footer>
-
+ 
       {/* SignInDialog (same dialog component as you already have) */}
       <SignInDialog openDialog={openDialog} closeDialog={() => setOpenDialog(false)} />
     </div>
   );
 }
+ 

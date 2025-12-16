@@ -9,7 +9,6 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { useConvex } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import AppSideBar from '@/components/custom/AppSideBar';
 import { ActionContext } from '@/context/ActionContext';
 import { useRouter } from 'next/navigation';
 
@@ -25,30 +24,46 @@ function Provider({ children }) {
     void isAuthenticated();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+const isAuthenticated = async () => {
+  if (typeof window === "undefined") return;
 
-  const isAuthenticated = async () => {
-    if (typeof window === 'undefined') return;
-    const raw = localStorage.getItem('user');
-    if (!raw) {
-      router.push('/');
-      return;
-    }
-    let user = null;
-    try {
-      user = JSON.parse(raw);
-    } catch (e) {
-      console.error('Invalid user JSON in localStorage', e);
-      localStorage.removeItem('user');
-      router.push('/');
-      return;
-    }
-    if (!user?.email) {
-      router.push('/');
-      return;
-    }
-    const result = await convex.query(api.users.GetUser, { email: user.email });
-    setUserDetail(result);
-  };
+  const raw = localStorage.getItem("user");
+  if (!raw) {
+    router.push("/");
+    return;
+  }
+
+  let user;
+  try {
+    user = JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("user");
+    router.push("/");
+    return;
+  }
+
+  if (!user?.email) {
+    router.push("/");
+    return;
+  }
+
+  const result = await convex.query(api.users.GetUser, {
+    email: user.email,
+  });
+
+  if (!result) {
+    localStorage.removeItem("user");
+    router.push("/");
+    return;
+  }
+
+  setUserDetail(result);
+
+  // ✅ Correct debug point
+  console.log("USER LOADED FROM CONVEX:", result);
+};
+
+
   return (
     <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_CLIENT_ID_KEY || ''}>
       <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
