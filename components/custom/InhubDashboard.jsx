@@ -8,7 +8,7 @@ import PreviewView from "./Previewview";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { MessagesContext } from "@/context/MessagesContext";
-
+import { useClerk } from "@clerk/nextjs";
 import {
   FiGrid,
   FiFolder,
@@ -61,6 +61,7 @@ export default function InhubDashboard({ initialProjectId = null }) {
   const removeProject = useMutation(api.projects.remove);
  
   // state
+  const { signOut } = useClerk();
   const { setMessages } = useContext(MessagesContext);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [projects, setProjects] = useState([]);
@@ -98,6 +99,25 @@ export default function InhubDashboard({ initialProjectId = null }) {
       uniqueProjects([proj, ...(prev || []).filter((p) => p.id !== proj.id)])
     );
   };
+ 
+  
+const handleSignOut = async () => {
+  try {
+    // 1. Kill Clerk session
+    await signOut();
+
+    // 2. Clear app state (safe)
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3. Hard redirect to login
+    window.location.replace("/login");
+  } catch (error) {
+    console.error("Sign out failed:", error);
+    window.location.replace("/login");
+  }
+};
+
  
   // ========= INITIAL LOAD =========
 
@@ -278,8 +298,6 @@ useEffect(() => {
   filesCount: 0,
   createdAt: new Date().toISOString(),
 };
-
- 
         // 1. Pehle Database mein wait karo (CRITICAL FIX)
         try {
           await CreateProject(newProj);
@@ -934,13 +952,12 @@ const reactKey = `${p.id || p._id || "proj"}_${p.CreatedAt || "nodate"}_${Math.r
           <br />
           <br />
           <button
-            className="bottom-btn"
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-          >
-            Sign Out
-          </button>
+  className="bottom-btn"
+  onClick={handleSignOut}
+>
+  Sign Out
+</button>
+
         </div>
       </aside>
  

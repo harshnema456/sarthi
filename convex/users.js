@@ -1,61 +1,78 @@
-import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
-// Create a new user or return existing user
+import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
+
+/* =====================================================
+   CREATE USER (IDEMPOTENT BY CLERK UID)
+===================================================== */
 export const CreateUser = mutation({
     args: {
         name: v.string(),
         email: v.string(),
-        picture: v.string(),
-        uid: v.string(),
+        picture: v.optional(v.string()),
+        uid: v.string(), // Clerk userId
     },
     handler: async(ctx, args) => {
-        // Check if user already exists
+        // 1. Check by Clerk uid (PRIMARY)
         const existing = await ctx.db
             .query("users")
-            .filter((q) => q.eq(q.field("email"), args.email))
-            .collect();
+            .withIndex("by_uid", (q) => q.eq("uid", args.uid))
+            .first();
 
-        if (existing.length > 0) {
-            return existing[0]._id; // <-- return existing user ID
+        if (existing) {
+            return existing._id;
         }
 
-        // Create new user
-        const newUserId = await ctx.db.insert("users", {
+        // 2. Create user once
+        return await ctx.db.insert("users", {
             name: args.name,
-            picture: args.picture,
             email: args.email,
+            picture: args.picture,
             uid: args.uid,
             token: 50000,
+            createdAt: new Date().toISOString(),
         });
-
-        return newUserId; // <-- return new ID
     },
 });
 
+/* =====================================================
+   GET USER (BY CLERK UID)
+===================================================== */
+export const GetUserByUid = query({
+    args: {
+        uid: v.string(),
+    },
+    handler: async(ctx, { uid }) => {
+        return await ctx.db
+            .query("users")
+            .withIndex("by_uid", (q) => q.eq("uid", uid))
+            .first();
+    },
+});
 
-// Get user details by email
-export const GetUser = query({
+/* =====================================================
+   (OPTIONAL) GET USER BY EMAIL — LEGACY ONLY
+===================================================== */
+export const GetUserByEmail = query({
     args: {
         email: v.string(),
     },
-    handler: async(ctx, args) => {
-        const user = await ctx.db
-            .query('users')
-            .filter((q) => q.eq(q.field('email'), args.email))
-            .collect();
-        return user[0];
+    handler: async(ctx, { email }) => {
+        return await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", email))
+            .first();
     },
 });
-// Update user token
+
+/* =====================================================
+   UPDATE TOKEN (UNCHANGED)
+===================================================== */
 export const UpdateToken = mutation({
     args: {
         token: v.number(),
-        userId: v.id('users'),
+        userId: v.id("users"),
     },
-    handler: async(ctx, args) => {
-        const result = await ctx.db.patch(args.userId, {
-            token: args.token,
-        });
-        return result;
+    handler: async(ctx, { token, userId }) => {
+        return await ctx.db.patch(userId, { token });
     },
 });

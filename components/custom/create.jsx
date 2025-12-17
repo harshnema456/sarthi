@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-
+import { useClerk } from "@clerk/nextjs";
 import {
   FolderOpen,
   Coins,
@@ -164,7 +164,7 @@ function StatsCard({ title, value, icon: Icon }) {
 export default function Create() {
   const router = useRouter();
   const convex = useConvex();
-
+ const { signOut } = useClerk(); 
   const { userDetail } = useContext(UserDetailContext);
   const { setMessages } = useContext(MessagesContext);
 
@@ -206,27 +206,17 @@ const handleQuickStart = (item) => {
 /* =========================
    REAL Sign Out Handler
 ========================= */
+
 const handleSignOut = async () => {
   try {
-    // 1️⃣ Clear app state
-    setProjects([]);
-    setMessages([]);
+    //  This actually ends the session
+    await signOut();
 
-    // 2️⃣ Clear stored data
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // 3️⃣ Prevent back navigation AFTER logout
-    window.history.pushState(null, "", "/login");
-    window.onpopstate = () => {
-      window.history.pushState(null, "", "/login");
-    };
-
-    // 4️⃣ Hard redirect (kills session)
-    window.location.replace("/login");
+    // Safety redirect (middleware will also enforce this)
+    router.replace("/login");
   } catch (err) {
     console.error("Sign out failed:", err);
-    window.location.replace("/login");
+    router.replace("/login");
   }
 };
 
@@ -250,7 +240,8 @@ const handleSignOut = async () => {
       // (Assuming storedUser mein basic details like email/name hain)
       setUserDetail((prev) => ({ ...prev, ...storedUser }));
       try {
-        const freshUser = await convex.query(api.users.GetUser, {
+        const freshUser = await convex.query(api.users.GetUserByUid
+, {
           email: storedUser.email,
         });
         if (freshUser) {
